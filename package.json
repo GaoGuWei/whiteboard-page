@@ -1,0 +1,29 @@
+{
+  "name": "teaching-transcript-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:api": "node server/index.mjs",
+    "dev:web": "vite",
+    "build": "vite build",
+    "check": "tsc --noEmit",
+    "start": "node server/index.mjs",
+    "dev": "node server/index.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "express": "^4.21.2",
+    "katex": "^0.16.22",
+    "vite": "^6.0.7",
+    "typescript": "^5.7.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/katex": "^0.16.7",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2"
+  }
+}
