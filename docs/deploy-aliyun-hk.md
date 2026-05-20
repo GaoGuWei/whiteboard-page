@@ -187,6 +187,7 @@ pm2 restart whiteboard-page
 
 - 访问页面 401：Basic Auth 正常工作，输入 `.env` 中的用户名和密码。
 - 页面打开但没有图片：确认图片已经上传到 `IMAGE_DIR`，并且扩展名是 `.png`、`.jpg` 或 `.jpeg`。
+- 页面报 `/api/select-folder` 400：请更新到包含 Linux 兼容修复的最新代码并重新构建；云端不会弹出本机文件夹选择窗口，会使用服务器 `.env` 中的 `IMAGE_DIR`。
 - AI 不生成真实内容：检查 `.env` 中 `YI_API_KEY` 是否正确，使用 `pm2 logs whiteboard-page` 查看后端日志。
 - 朋友无法访问：检查阿里云防火墙/安全组是否开放 80 和 443，Nginx 是否正在运行。
 - 想移除访问密码：删除 `.env` 中 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASSWORD` 后重启 PM2；不建议公开分享时这样做。

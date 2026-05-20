@@ -5,8 +5,6 @@ import { TranscriptPanel } from "./components/side/TranscriptPanel";
 import { analyzeImages, analyzeSingleImage, exportDocx, generateTranscript, listAssets, selectFolder, startAnalyzeStream } from "./lib/api";
 import type { AnalysisProgress, AnalyzeStreamEvent, Asset, GeneratePayload, ImageRef, PinKey, QueueImage, ReviewImage, SectionDefinition, SectionId, SectionsState } from "./lib/types";
 
-const DEFAULT_IMAGE_DIR = "/Users/gao/Pictures/逐字稿test/因式分解";
-
 const SECTION_DEFINITIONS: SectionDefinition[] = [
   { id: "review", title: "一、复习检测", hint: "在此处放入复习题或检测截图" },
   { id: "interest", title: "二、兴趣构建", hint: "在此处放入情境、问题或知识点截图" },
@@ -59,7 +57,7 @@ function sampleTranscript() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"assets" | "transcript">("assets");
-  const [imageDir, setImageDir] = useState(DEFAULT_IMAGE_DIR);
+  const [imageDir, setImageDir] = useState("");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetStatus, setAssetStatus] = useState("准备读取图片素材。");
   const [assetStatusKind, setAssetStatusKind] = useState<"ok" | "error" | "">("");
@@ -105,7 +103,7 @@ export default function App() {
   }, [imageDir]);
 
   useEffect(() => {
-    void loadAssets(DEFAULT_IMAGE_DIR);
+    void loadAssets("");
   }, []);
 
   const buildPayload = useCallback((): GeneratePayload => ({

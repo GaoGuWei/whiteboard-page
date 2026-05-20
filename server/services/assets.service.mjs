@@ -21,6 +21,9 @@ export async function getAssetList(dir) {
 
 export async function selectAssetFolder(dir) {
   try {
+    if (process.platform !== "darwin") {
+      return safeDir(dir || DEFAULT_DIR);
+    }
     return await chooseFolder(dir || DEFAULT_DIR);
   } catch (error) {
     throw serviceError(error.message || "Folder selection failed", 400);
