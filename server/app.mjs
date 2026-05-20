@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import apiRoutes from "./routes/index.mjs";
+import { basicAuth } from "./middlewares/basic-auth.mjs";
 import { errorHandler } from "./middlewares/error-handler.mjs";
 import { notFound } from "./middlewares/not-found.mjs";
 
@@ -14,6 +15,7 @@ const distIndex = resolve(distDir, "index.html");
 export const app = express();
 
 app.use(express.json({ limit: "10mb" }));
+app.use(basicAuth);
 app.use("/api", apiRoutes);
 app.use(express.static(distDir));
 app.use((req, res, next) => {

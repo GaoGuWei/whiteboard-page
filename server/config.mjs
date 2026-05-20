@@ -4,6 +4,8 @@ loadEnvFile();
 
 export const PORT = Number(process.env.PORT || 3000);
 export const DEFAULT_DIR = process.env.IMAGE_DIR || "/Users/gao/Pictures/逐字稿test/因式分解";
+export const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER || "";
+export const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || "";
 export const AI_BASE_URL = (
   process.env.AI_BASE_URL ||
   process.env.OPENAI_BASE_URL ||

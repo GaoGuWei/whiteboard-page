@@ -27,6 +27,12 @@ pnpm run start
 
 后端唯一推荐入口是 `server/index.mjs`；根目录 `server.mjs` 仅保留为 deprecated 兼容入口。
 
+云端部署可参考：
+
+```text
+docs/deploy-aliyun-hk.md
+```
+
 默认图片目录：
 
 ```text
@@ -62,6 +68,16 @@ AI_BASE_URL="https://api.apiyi.com/v1" YI_API_KEY="你的密钥" pnpm run dev:ap
 ```
 
 API Key 只在本地 Node 后端读取，不会写入前端页面。不要把真实密钥写入 README 或前端代码。
+
+## 访问保护
+
+公开部署时建议配置简单访问口令，避免他人消耗你的 AI API 额度：
+
+```bash
+BASIC_AUTH_USER="whiteboard" BASIC_AUTH_PASSWORD="换成一个足够长的密码" pnpm run start
+```
+
+未配置 `BASIC_AUTH_USER` 或 `BASIC_AUTH_PASSWORD` 时，访问保护不会启用，适合本地开发。
 
 ## 功能
 
