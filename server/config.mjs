@@ -4,6 +4,11 @@ loadEnvFile();
 
 export const PORT = Number(process.env.PORT || 3000);
 export const DEFAULT_DIR = process.env.IMAGE_DIR || "/Users/gao/Pictures/逐字稿test/因式分解";
+export const UPLOAD_DIR = process.env.UPLOAD_DIR || ".whiteboard-uploads";
+export const MAX_UPLOAD_FILES = Number(process.env.MAX_UPLOAD_FILES || 50);
+export const MAX_UPLOAD_FILE_BYTES = Number(process.env.MAX_UPLOAD_FILE_BYTES || 10 * 1024 * 1024);
+export const MAX_UPLOAD_TOTAL_BYTES = Number(process.env.MAX_UPLOAD_TOTAL_BYTES || 100 * 1024 * 1024);
+export const UPLOAD_TTL_HOURS = Number(process.env.UPLOAD_TTL_HOURS || 24);
 export const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER || "";
 export const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || "";
 export const AI_BASE_URL = (

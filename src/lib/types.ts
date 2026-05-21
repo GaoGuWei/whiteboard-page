@@ -1,11 +1,24 @@
 export type SectionId = "review" | "interest" | "mindmap" | "knowledge" | "test";
+export type AppMode = "local" | "cloud";
+export type AssetSource = "preset" | "uploaded";
 
-export interface Asset {
+export interface ImageAsset {
+  id: string;
+  source: AssetSource;
   name: string;
   width: number;
   height: number;
   bytes?: number;
   url: string;
+  imageDir?: string;
+  path?: string;
+}
+
+export type Asset = ImageAsset;
+
+export interface AssetUploadResult {
+  dir: string;
+  assets: ImageAsset[];
 }
 
 export interface SectionDefinition {

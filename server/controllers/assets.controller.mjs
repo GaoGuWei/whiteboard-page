@@ -2,6 +2,7 @@ import {
   getAssetList,
   getImageStream,
   selectAssetFolder,
+  uploadAssetImages,
 } from "../services/assets.service.mjs";
 
 export async function getAssets(req, res) {
@@ -10,6 +11,10 @@ export async function getAssets(req, res) {
 
 export async function selectFolder(req, res) {
   res.json({ dir: await selectAssetFolder(req.query.dir) });
+}
+
+export async function uploadAssets(req, res) {
+  res.json(await uploadAssetImages(req));
 }
 
 export async function getImage(req, res) {

@@ -1,48 +1,92 @@
-import type { Asset } from "../../lib/types";
+import { useRef } from "react";
+import type { AppMode, ImageAsset } from "../../lib/types";
 
 interface AssetPanelProps {
-  dir: string;
-  assets: Asset[];
+  mode: AppMode;
+  sourceLabel: string;
+  assets: ImageAsset[];
   selectedAssetName: string | null;
   usedAssetNames: Set<string>;
   status: string;
   statusKind: "ok" | "error" | "";
-  onDirChange: (value: string) => void;
-  onRead: () => void;
-  onSelectFolder: () => void;
+  onReloadPresetAssets?: () => void;
+  onUploadFiles: (files: File[]) => void;
+  onUploadError: (message: string) => void;
   onSelectAsset: (assetName: string) => void;
   onClearBoard: () => void;
 }
 
 export function AssetPanel({
-  dir,
+  mode,
+  sourceLabel,
   assets,
   selectedAssetName,
   usedAssetNames,
   status,
   statusKind,
-  onDirChange,
-  onRead,
-  onSelectFolder,
+  onReloadPresetAssets,
+  onUploadFiles,
+  onUploadError,
   onSelectAsset,
   onClearBoard,
 }: AssetPanelProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFiles = (files: FileList | null) => {
+    const images = Array.from(files || []).filter((file) => /image\/(png|jpeg)/.test(file.type) || /\.(png|jpe?g)$/i.test(file.name));
+    if (!images.length) {
+      onUploadError("没有找到可上传的图片，请选择 PNG、JPG 或 JPEG 文件。");
+      return;
+    }
+    if (images.length > 50) {
+      onUploadError("单次最多上传 50 张图片，请减少图片数量后再试。");
+      return;
+    }
+    if (images.length) onUploadFiles(images);
+  };
+
   return (
     <section className="tab-pane active asset-panel" aria-label="图片素材">
-      <div className="folder-path" onDoubleClick={onSelectFolder}>
+      <input
+        ref={fileInputRef}
+        className="file-picker"
+        type="file"
+        accept="image/png,image/jpeg"
+        multiple
+        onChange={(event) => {
+          handleFiles(event.target.files);
+          event.target.value = "";
+        }}
+      />
+      <input
+        ref={folderInputRef}
+        className="file-picker"
+        type="file"
+        accept="image/png,image/jpeg"
+        multiple
+        {...{ webkitdirectory: "" }}
+        onChange={(event) => {
+          handleFiles(event.target.files);
+          event.target.value = "";
+        }}
+      />
+      <div className="folder-path">
         <svg viewBox="0 0 32 32" aria-hidden="true">
           <path d="M3.5 9.5h9l3 4h13v12a3 3 0 0 1-3 3h-19a3 3 0 0 1-3-3v-16Z" />
           <path d="M3.5 13.5h25" />
         </svg>
         <input
           className="folder-input"
-          value={dir}
-          onChange={(event) => onDirChange(event.target.value)}
-          onClick={onSelectFolder}
-          aria-label="图片素材文件夹路径"
+          value={sourceLabel}
+          readOnly
+          aria-label="本次素材来源"
         />
-        <button className="tiny-btn" type="button" onClick={onRead}>读取</button>
-        <button className="tiny-btn" type="button" onClick={onSelectFolder}>选择</button>
+        {mode === "cloud" && onReloadPresetAssets ? (
+          <button className="tiny-btn" type="button" onClick={onReloadPresetAssets}>示例</button>
+        ) : null}
+        <button className="tiny-btn" type="button" onClick={() => fileInputRef.current?.click()}>图片</button>
+        <button className="tiny-btn" type="button" onClick={() => folderInputRef.current?.click()}>文件夹</button>
       </div>
 
       <div className="asset-title-row">
@@ -72,17 +116,17 @@ export function AssetPanel({
               <div className="asset-meta">
                 <span className="asset-name" title={asset.name}>{asset.name}</span>
                 <span>{asset.width || "-"} x {asset.height || "-"}</span>
-                {used ? <span className="used-mark">已用</span> : <span>拖入</span>}
+                {used ? <span className="used-mark">已用</span> : <span className={`source-mark ${asset.source}`}>{asset.source === "uploaded" ? "上传" : "示例"}</span>}
               </div>
             </article>
           );
         })}
       </div>
 
-      <button className="upload-card" type="button" onClick={onSelectFolder}>
+      <button className="upload-card" type="button" onClick={() => folderInputRef.current?.click()}>
         <span className="plus">+</span>
-        <span>选择图片文件夹</span>
-        <span className="hint">支持 PNG / JPG / JPEG，拖入左侧板块</span>
+        <span>上传图片 / 选择文件夹</span>
+        <span className="hint">支持 PNG / JPG / JPEG，上传后拖入左侧板块</span>
       </button>
     </section>
   );

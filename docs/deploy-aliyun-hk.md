@@ -67,7 +67,10 @@ nano .env
 
 ```bash
 PORT=3000
+VITE_APP_MODE=cloud
 IMAGE_DIR=/srv/whiteboard/images
+UPLOAD_DIR=/srv/whiteboard/uploads
+UPLOAD_TTL_HOURS=24
 
 AI_BASE_URL=https://api.apiyi.com/v1
 YI_API_KEY=你的真实密钥
@@ -81,6 +84,7 @@ BASIC_AUTH_PASSWORD=换成一个足够长的访问密码
 
 ```bash
 mkdir -p /srv/whiteboard/images
+mkdir -p /srv/whiteboard/uploads
 ```
 
 把需要给朋友使用的题目截图上传到 `/srv/whiteboard/images`。例如从本机上传：
@@ -125,7 +129,7 @@ server {
     listen 80;
     server_name _;
 
-    client_max_body_size 20m;
+    client_max_body_size 120m;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -173,20 +177,127 @@ certbot --nginx -d your-domain.com
 
 ## 8. 更新部署
 
-以后服务器更新代码：
+以后服务器更新代码，建议按下面顺序做。先在本地确认代码，再推送 GitHub，最后到服务器拉取和重启。
+
+### 8.1 本地提交并推送 GitHub
+
+确认当前分支：
+
+```bash
+cd /Users/gao/VSCodeSpace/white_board
+git branch --show-current
+git status --short
+```
+
+当前云端试用版部署的是 `feature/new-whiteboard-page` 时，提交并推送：
+
+```bash
+pnpm run check
+VITE_APP_MODE=cloud pnpm run build
+
+git add .
+git commit -m "Update cloud image source workflow"
+git push origin feature/new-whiteboard-page
+```
+
+注意：不要提交 `.env`、`.env.local`、`.whiteboard-uploads/`、`dist/`、`node_modules/`。这些文件和目录已在 `.gitignore` 中排除。
+
+### 8.2 服务器拉取代码并检查配置
+
+登录服务器：
+
+```bash
+ssh root@你的服务器IP
+cd /srv/whiteboard/app
+git branch --show-current
+git status --short
+```
+
+如果服务器部署的是功能分支：
+
+```bash
+git switch feature/new-whiteboard-page
+git pull origin feature/new-whiteboard-page
+```
+
+检查服务器 `.env`：
+
+```bash
+grep -E '^(PORT|VITE_APP_MODE|IMAGE_DIR|UPLOAD_DIR|UPLOAD_TTL_HOURS|AI_BASE_URL|OPENAI_MODEL|BASIC_AUTH_USER)=' .env
+test -n "$(grep '^YI_API_KEY=' .env | cut -d= -f2-)" && echo "YI_API_KEY is set"
+```
+
+云端建议值：
+
+```bash
+PORT=3000
+VITE_APP_MODE=cloud
+IMAGE_DIR=/srv/whiteboard/images
+UPLOAD_DIR=/srv/whiteboard/uploads
+UPLOAD_TTL_HOURS=24
+AI_BASE_URL=https://api.apiyi.com/v1
+OPENAI_MODEL=gpt-4.1-mini
+BASIC_AUTH_USER=whiteboard
+```
+
+确认目录存在：
+
+```bash
+mkdir -p /srv/whiteboard/images /srv/whiteboard/uploads
+ls -lh /srv/whiteboard/images
+ls -ld /srv/whiteboard/uploads
+```
+
+### 8.3 构建并重启
 
 ```bash
 cd /srv/whiteboard/app
-git pull
 pnpm install
+pnpm run check
 pnpm run build
-pm2 restart whiteboard-page
+pm2 restart whiteboard-page --update-env
 ```
+
+`VITE_APP_MODE` 是前端构建时变量，修改后需要重新执行 `pnpm run build`。`IMAGE_DIR`、`UPLOAD_DIR` 和 API key 是后端运行时变量，修改后需要 `pm2 restart whiteboard-page --update-env`。
+
+如果是第一次用 PM2 启动：
+
+```bash
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+### 8.4 云端验证
+
+在服务器上验证：
+
+```bash
+pm2 status
+curl -I http://127.0.0.1:3000
+curl -I http://127.0.0.1:3000/api/assets
+```
+
+如果启用了 Basic Auth，公网访问时浏览器会要求输入用户名和密码；服务器本机 `curl` 也可能返回 `401 Authentication required`，这代表访问保护生效，不是服务故障。
+
+在浏览器验证：
+
+```text
+http://你的服务器IP
+```
+
+重点测试：
+
+- 页面能打开并触发 Basic Auth。
+- 图片素材页能看到服务器示例素材，或显示空目录提示。
+- 点击“图片 / 文件夹”选择用户电脑图片后能上传。
+- 上传图片可拖入白板，能进入风险校验和逐字稿生成。
+- 生成失败时查看 `pm2 logs whiteboard-page --lines 100`。
 
 ## 9. 常见问题
 
 - 访问页面 401：Basic Auth 正常工作，输入 `.env` 中的用户名和密码。
 - 页面打开但没有图片：确认图片已经上传到 `IMAGE_DIR`，并且扩展名是 `.png`、`.jpg` 或 `.jpeg`。
+- 用户选择自己电脑图片：页面会把图片上传到服务器 `UPLOAD_DIR` 下的临时目录；如果上传失败，检查 Nginx `client_max_body_size` 和服务器磁盘空间。
 - 页面报 `/api/select-folder` 400：请更新到包含 Linux 兼容修复的最新代码并重新构建；云端不会弹出本机文件夹选择窗口，会使用服务器 `.env` 中的 `IMAGE_DIR`。
 - AI 不生成真实内容：检查 `.env` 中 `YI_API_KEY` 是否正确，使用 `pm2 logs whiteboard-page` 查看后端日志。
 - 朋友无法访问：检查阿里云防火墙/安全组是否开放 80 和 443，Nginx 是否正在运行。

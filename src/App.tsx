@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Whiteboard } from "./components/Whiteboard";
 import { AssetPanel } from "./components/side/AssetPanel";
 import { TranscriptPanel } from "./components/side/TranscriptPanel";
-import { analyzeImages, analyzeSingleImage, exportDocx, generateTranscript, listAssets, selectFolder, startAnalyzeStream } from "./lib/api";
-import type { AnalysisProgress, AnalyzeStreamEvent, Asset, GeneratePayload, ImageRef, PinKey, QueueImage, ReviewImage, SectionDefinition, SectionId, SectionsState } from "./lib/types";
+import { analyzeImages, analyzeSingleImage, exportDocx, generateTranscript, startAnalyzeStream } from "./lib/api";
+import { createImageSourceAdapter } from "./lib/imageSource";
+import type { AnalysisProgress, AnalyzeStreamEvent, Asset, AssetSource, GeneratePayload, ImageRef, PinKey, QueueImage, ReviewImage, SectionDefinition, SectionId, SectionsState } from "./lib/types";
 
 const SECTION_DEFINITIONS: SectionDefinition[] = [
   { id: "review", title: "一、复习检测", hint: "在此处放入复习题或检测截图" },
@@ -13,6 +14,7 @@ const SECTION_DEFINITIONS: SectionDefinition[] = [
   { id: "test", title: "五、效果检测", hint: "在此处放入课堂练习或检测题截图" },
 ];
 const TRANSCRIPT_SECTION_ORDER: SectionId[] = ["review", "interest", "knowledge", "mindmap", "test"];
+const IMAGE_SOURCE_ADAPTER = createImageSourceAdapter();
 
 function orderedSectionDefinitions() {
   const byId = new Map(SECTION_DEFINITIONS.map((section) => [section.id, section]));
@@ -57,9 +59,12 @@ function sampleTranscript() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"assets" | "transcript">("assets");
-  const [imageDir, setImageDir] = useState("");
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [assetStatus, setAssetStatus] = useState("准备读取图片素材。");
+  const [activeAssetSource, setActiveAssetSource] = useState<AssetSource>(IMAGE_SOURCE_ADAPTER.initialSource);
+  const [presetImageDir, setPresetImageDir] = useState("");
+  const [uploadedImageDir, setUploadedImageDir] = useState("");
+  const [presetAssets, setPresetAssets] = useState<Asset[]>([]);
+  const [uploadedAssets, setUploadedAssets] = useState<Asset[]>([]);
+  const [assetStatus, setAssetStatus] = useState(IMAGE_SOURCE_ADAPTER.initialStatus);
   const [assetStatusKind, setAssetStatusKind] = useState<"ok" | "error" | "">("");
   const [selectedAssetName, setSelectedAssetName] = useState<string | null>(null);
   const [title, setTitle] = useState("标题");
@@ -78,6 +83,12 @@ export default function App() {
   const [pinnedSections, setPinnedSections] = useState<Partial<Record<PinKey, boolean>>>({});
   const pinnedSectionsRef = useRef<Partial<Record<PinKey, boolean>>>({});
   const [pendingRegenerate, setPendingRegenerate] = useState(false);
+  const assets = activeAssetSource === "uploaded" ? uploadedAssets : presetAssets;
+  const imageDir = activeAssetSource === "uploaded" ? uploadedImageDir : presetImageDir;
+  const sourceLabel =
+    IMAGE_SOURCE_ADAPTER.mode === "local"
+      ? uploadedAssets.length ? "本机已选择素材" : "请选择本机图片或文件夹"
+      : activeAssetSource === "uploaded" ? "已上传素材" : "服务器示例素材";
 
   const usedAssetNames = useMemo(() => {
     const names = new Set<string>();
@@ -86,25 +97,68 @@ export default function App() {
   }, [sections]);
   const confirmedAssetKeys = useMemo(() => new Set(transcriptQueue.map((image) => assetKey(image.sectionId, image.assetName))), [transcriptQueue]);
 
-  const loadAssets = useCallback(async (dir = imageDir) => {
-    setAssetStatus("正在读取图片...");
+  const loadInitialAssets = useCallback(async () => {
+    setAssetStatus(IMAGE_SOURCE_ADAPTER.mode === "local" ? "请选择本机图片或文件夹。" : "正在读取服务器示例素材...");
     setAssetStatusKind("");
     try {
-      const result = await listAssets(dir);
-      setImageDir(result.dir);
-      setAssets(result.assets);
-      setAssetStatus(result.assets.length ? `已读取 ${result.assets.length} 张图片。` : "当前文件夹没有可用图片。");
+      const result = await IMAGE_SOURCE_ADAPTER.loadInitialAssets();
+      setPresetImageDir(result.dir);
+      setPresetAssets(result.assets);
+      setActiveAssetSource(IMAGE_SOURCE_ADAPTER.initialSource);
+      setAssetStatus(
+        IMAGE_SOURCE_ADAPTER.mode === "local"
+          ? "请选择本机图片或文件夹。"
+          : result.assets.length ? `已读取 ${result.assets.length} 张服务器示例素材。` : "服务器示例素材目录没有可用图片。",
+      );
       setAssetStatusKind("ok");
     } catch (error) {
-      setAssets([]);
+      setPresetAssets([]);
       setAssetStatus(error instanceof Error ? error.message : "图片读取失败");
       setAssetStatusKind("error");
     }
-  }, [imageDir]);
+  }, []);
+
+  const resetWorkspaceForNewAssets = () => {
+    setSections(emptySections());
+    setReviewImages([]);
+    setTranscriptQueue([]);
+    setRiskViewActive(false);
+    pinnedSectionsRef.current = {};
+    setPinnedSections({});
+    setTranscriptGenerated(false);
+    setPendingRegenerate(false);
+    setSelectedAssetName(null);
+  };
+
+  const uploadFiles = async (files: File[]) => {
+    if (!files.length) return;
+    setAssetStatus(`正在上传 ${files.length} 张图片...`);
+    setAssetStatusKind("");
+    try {
+      const result = await IMAGE_SOURCE_ADAPTER.importFiles(files);
+      resetWorkspaceForNewAssets();
+      setUploadedImageDir(result.dir);
+      setUploadedAssets(result.assets);
+      setActiveAssetSource("uploaded");
+      setAssetStatus(`已上传 ${result.assets.length} 张图片。`);
+      setAssetStatusKind("ok");
+      setActiveTab("assets");
+    } catch (error) {
+      setAssetStatus(error instanceof Error ? error.message : "图片上传失败");
+      setAssetStatusKind("error");
+    }
+  };
+
+  const activatePresetAssets = () => {
+    resetWorkspaceForNewAssets();
+    setActiveAssetSource("preset");
+    setAssetStatus(presetAssets.length ? `已切换到 ${presetAssets.length} 张服务器示例素材。` : "服务器示例素材目录没有可用图片。");
+    setAssetStatusKind("ok");
+  };
 
   useEffect(() => {
-    void loadAssets("");
-  }, []);
+    void loadInitialAssets();
+  }, [loadInitialAssets]);
 
   const buildPayload = useCallback((): GeneratePayload => ({
     title,
@@ -549,17 +603,6 @@ export default function App() {
     }
   };
 
-  const handleSelectFolder = async () => {
-    try {
-      setAssetStatus("正在打开文件夹选择窗口...");
-      const result = await selectFolder(imageDir);
-      await loadAssets(result.dir);
-    } catch (error) {
-      setAssetStatus(error instanceof Error ? error.message : "选择文件夹失败");
-      setAssetStatusKind("error");
-    }
-  };
-
   return (
     <main className="app">
       <Whiteboard
@@ -598,25 +641,22 @@ export default function App() {
         <div className="tab-content">
           {activeTab === "assets" ? (
             <AssetPanel
-              dir={imageDir}
+              mode={IMAGE_SOURCE_ADAPTER.mode}
+              sourceLabel={sourceLabel}
               assets={assets}
               selectedAssetName={selectedAssetName}
               usedAssetNames={usedAssetNames}
               status={assetStatus}
               statusKind={assetStatusKind}
-              onDirChange={setImageDir}
-              onRead={() => loadAssets(imageDir)}
-              onSelectFolder={handleSelectFolder}
+              onReloadPresetAssets={IMAGE_SOURCE_ADAPTER.supportsPresetAssets ? activatePresetAssets : undefined}
+              onUploadFiles={uploadFiles}
+              onUploadError={(message) => {
+                setAssetStatus(message);
+                setAssetStatusKind("error");
+              }}
               onSelectAsset={(assetName) => setSelectedAssetName((current) => current === assetName ? null : assetName)}
               onClearBoard={() => {
-                setSections(emptySections());
-                setReviewImages([]);
-                setTranscriptQueue([]);
-                setRiskViewActive(false);
-                pinnedSectionsRef.current = {};
-                setPinnedSections({});
-                setTranscriptGenerated(false);
-                setPendingRegenerate(false);
+                resetWorkspaceForNewAssets();
               }}
             />
           ) : (

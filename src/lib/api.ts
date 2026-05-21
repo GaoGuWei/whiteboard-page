@@ -1,4 +1,4 @@
-import type { AnalyzeStreamStartResult, Asset, GeneratePayload, GenerateResult, ImageRef, PinKey, ReviewImage, ReviewResult, QueueImage } from "./types";
+import type { AnalyzeStreamStartResult, Asset, AssetSource, AssetUploadResult, GeneratePayload, GenerateResult, ImageRef, PinKey, ReviewImage, ReviewResult, QueueImage } from "./types";
 
 async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -10,12 +10,32 @@ async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+function normalizeAssets(dir: string, source: AssetSource, assets: Asset[]): Asset[] {
+  return assets.map((asset) => ({
+    ...asset,
+    id: asset.id || `${source}:${dir}:${asset.name}`,
+    source: asset.source || source,
+    imageDir: asset.imageDir || dir,
+  }));
+}
+
 export async function listAssets(dir: string): Promise<{ dir: string; assets: Asset[] }> {
-  return jsonRequest(`/api/assets?dir=${encodeURIComponent(dir)}`);
+  const result = await jsonRequest<{ dir: string; assets: Asset[] }>(`/api/assets?dir=${encodeURIComponent(dir)}`);
+  return { ...result, assets: normalizeAssets(result.dir, "preset", result.assets) };
 }
 
 export async function selectFolder(dir: string): Promise<{ dir: string }> {
   return jsonRequest(`/api/select-folder?dir=${encodeURIComponent(dir)}`);
+}
+
+export async function uploadAssets(files: File[]): Promise<AssetUploadResult> {
+  const body = new FormData();
+  files.forEach((file) => body.append("images", file, file.webkitRelativePath || file.name));
+  const result = await jsonRequest<AssetUploadResult>("/api/assets/upload", {
+    method: "POST",
+    body,
+  });
+  return { ...result, assets: normalizeAssets(result.dir, "uploaded", result.assets) };
 }
 
 export async function analyzeImages(payload: GeneratePayload): Promise<ReviewResult> {

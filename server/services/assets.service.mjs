@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
 import { extname } from "node:path";
-import { chooseFolder, listAssets, safeDir, safeImagePath } from "../assets.mjs";
+import { chooseFolder, listAssets, safeDir, safeImagePath, saveUploadedAssets } from "../assets.mjs";
 import { DEFAULT_DIR, IMAGE_EXTS, MIME } from "../config.mjs";
 
 function serviceError(message, status = 400) {
@@ -27,6 +27,14 @@ export async function selectAssetFolder(dir) {
     return await chooseFolder(dir || DEFAULT_DIR);
   } catch (error) {
     throw serviceError(error.message || "Folder selection failed", 400);
+  }
+}
+
+export async function uploadAssetImages(req) {
+  try {
+    return await saveUploadedAssets(req);
+  } catch (error) {
+    throw serviceError(error.message || "Image upload failed", 400);
   }
 }
 
