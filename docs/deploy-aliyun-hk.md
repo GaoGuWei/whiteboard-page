@@ -75,6 +75,7 @@ UPLOAD_TTL_HOURS=24
 AI_BASE_URL=https://api.apiyi.com/v1
 YI_API_KEY=你的真实密钥
 OPENAI_MODEL=gpt-4.1-mini
+AI_REQUEST_TIMEOUT_MS=240000
 
 BASIC_AUTH_USER=whiteboard
 BASIC_AUTH_PASSWORD=换成一个足够长的访问密码
@@ -134,6 +135,9 @@ server {
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -237,6 +241,7 @@ UPLOAD_DIR=/srv/whiteboard/uploads
 UPLOAD_TTL_HOURS=24
 AI_BASE_URL=https://api.apiyi.com/v1
 OPENAI_MODEL=gpt-4.1-mini
+AI_REQUEST_TIMEOUT_MS=240000
 BASIC_AUTH_USER=whiteboard
 ```
 
@@ -298,6 +303,7 @@ http://你的服务器IP
 - 访问页面 401：Basic Auth 正常工作，输入 `.env` 中的用户名和密码。
 - 页面打开但没有图片：确认图片已经上传到 `IMAGE_DIR`，并且扩展名是 `.png`、`.jpg` 或 `.jpeg`。
 - 用户选择自己电脑图片：页面会把图片上传到服务器 `UPLOAD_DIR` 下的临时目录；如果上传失败，检查 Nginx `client_max_body_size` 和服务器磁盘空间。
+- 多次重新生成后出现 502：通常是 Nginx 代理超时、AI 路由长时间未返回，或 Node 进程在生成时重启。先确认 Nginx 配置包含 `proxy_read_timeout 300s;`，然后执行 `nginx -t && systemctl reload nginx`，再检查 `pm2 logs whiteboard-page --lines 200` 和 `/var/log/nginx/error.log`。
 - 页面报 `/api/select-folder` 400：请更新到包含 Linux 兼容修复的最新代码并重新构建；云端不会弹出本机文件夹选择窗口，会使用服务器 `.env` 中的 `IMAGE_DIR`。
 - AI 不生成真实内容：检查 `.env` 中 `YI_API_KEY` 是否正确，使用 `pm2 logs whiteboard-page` 查看后端日志。
 - 朋友无法访问：检查阿里云防火墙/安全组是否开放 80 和 443，Nginx 是否正在运行。

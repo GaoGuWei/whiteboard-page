@@ -6,6 +6,9 @@ async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
   if (response.status === 404 && (url.includes("/api/analyze-image") || url.includes("/api/analyze-stream"))) {
     throw new Error("后端服务版本过旧，请重启 API 服务后再试。");
   }
+  if (response.status === 502 || response.status === 504) {
+    throw new Error("服务器网关超时或后端连接中断，请稍后重试；如果频繁出现，请检查 Nginx 超时配置和 PM2 后端日志。");
+  }
   if (!response.ok) throw new Error(data.error || "请求失败");
   return data as T;
 }
