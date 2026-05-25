@@ -323,6 +323,7 @@ export function RiskValidation({
   const [packageGuidance, setPackageGuidance] = useState("");
   const [packageParseWarning, setPackageParseWarning] = useState("");
   const [rebuildingPackage, setRebuildingPackage] = useState(false);
+  const locked = generating || progress.phase === "analyzing" || progress.phase === "generating";
   const queuedIds = useMemo(() => new Set(queue.map((item) => item.imageId)), [queue]);
   const ocrPreview = useMemo(() => renderMarkdownPreviewWithWarnings(ocrDraft), [ocrDraft]);
   const packagePreview = useMemo(() => renderMarkdownPreviewWithWarnings(packageDraft), [packageDraft]);
@@ -370,10 +371,12 @@ export function RiskValidation({
   const contentTypeLabel = (value?: ReviewImage["contentType"]) => IMAGE_CONTENT_TYPE_LABELS.find((item) => item.value === (value || "problem"))?.label || "题目";
 
   const updatePackage = (index: number, patch: Partial<SolutionResult>) => {
+    if (locked) return;
     onPackagesChange(packages.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
   };
 
   const openPackage = (index: number) => {
+    if (locked) return;
     const pkg = packages[index];
     if (!pkg) return;
     setActivePackageIndex(index);
@@ -392,7 +395,7 @@ export function RiskValidation({
   };
 
   const savePackage = () => {
-    if (activePackageIndex === null) return;
+    if (activePackageIndex === null || locked) return;
     const pkg = packages[activePackageIndex];
     if (!pkg) return;
     const parsed = packageFromMarkdown(pkg, packageDraft, packageSourceDraft);
@@ -405,6 +408,7 @@ export function RiskValidation({
   };
 
   const deletePackage = (pkg: SolutionResult) => {
+    if (locked) return;
     const label = pkg.assetName || pkg.problemId || "该题目包";
     const ok = window.confirm(`确认从逐字稿队列中删除“${label}”吗？该操作会同步删除白板中的对应图片。`);
     if (!ok) return;
@@ -416,7 +420,7 @@ export function RiskValidation({
   const rebuildDisabled = packageSourceDraft === "image_full_solution" || packageSourceDraft === "unclear";
 
   const rebuildPackage = async () => {
-    if (activePackageIndex === null || rebuildingPackage || rebuildDisabled) return;
+    if (activePackageIndex === null || rebuildingPackage || rebuildDisabled || locked) return;
     const pkg = packages[activePackageIndex];
     if (!pkg) return;
     setPackageParseWarning("");
@@ -446,7 +450,7 @@ export function RiskValidation({
               </p>
             </div>
             <div className="review-actions">
-              <button className="primary-btn" type="button" disabled={generating || !packages.length} onClick={onGenerateTranscript}>
+              <button className="primary-btn" type="button" disabled={locked || !packages.length} onClick={onGenerateTranscript}>
                 {generating ? "生成中..." : "确认题目包队列"}
               </button>
             </div>
@@ -482,8 +486,8 @@ export function RiskValidation({
                     </p>
                   ) : null}
                   <div className="review-card-actions">
-                    <button className="tiny-btn" type="button" onClick={() => openPackage(index)}>编辑</button>
-                    <button className="tiny-btn" type="button" onClick={() => deletePackage(pkg)}>删除</button>
+                    <button className="tiny-btn" type="button" disabled={locked} onClick={() => openPackage(index)}>编辑</button>
+                    <button className="tiny-btn" type="button" disabled={locked} onClick={() => deletePackage(pkg)}>删除</button>
                   </div>
                 </article>
               );
@@ -516,7 +520,7 @@ export function RiskValidation({
                       <textarea
                         className="ocr-editor package-editor"
                         value={packageDraft}
-                        disabled={rebuildingPackage}
+                        disabled={rebuildingPackage || locked}
                         onChange={(event) => setPackageDraft(event.target.value)}
                         aria-label="可编辑题目包 Markdown"
                       />
@@ -526,19 +530,20 @@ export function RiskValidation({
                   <div className="risk-dialog-bottom">
                     <section className="risk-hints package-source-pane" aria-label="答案来源与校验提示">
                       <h4 className="risk-hints-title">答案来源</h4>
-                      <select className="package-source-select" value={packageSourceDraft || "ai_generated"} onChange={(event) => setPackageSourceDraft(event.target.value)}>
+                      <select className="package-source-select" value={packageSourceDraft || "ai_generated"} disabled={locked || rebuildingPackage} onChange={(event) => setPackageSourceDraft(event.target.value)}>
                         {SOLUTION_SOURCE_LABELS.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}
                       </select>
                       <h4 className="risk-hints-title">解析重构引导</h4>
                       <textarea
                         className="ocr-editor package-guidance-editor"
                         value={packageGuidance}
-                        disabled={rebuildingPackage}
+                        disabled={rebuildingPackage || locked}
                         onChange={(event) => setPackageGuidance(event.target.value)}
                         placeholder="例如：请用因式分解法；补全几何证明链；保留图片答案，只优化步骤。"
                         aria-label="解析重构引导"
                       />
                       <div className="package-review-notes">
+                        {locked ? <p className="review-summary">生成中，暂不可编辑。</p> : null}
                         {rebuildDisabled ? <p className="review-summary">当前答案来源不支持解析重构。</p> : null}
                         {issue && !issue.passed ? (
                           <p className="review-summary">
@@ -563,8 +568,8 @@ export function RiskValidation({
                   </div>
                 </div>
                 <div className="risk-dialog-actions">
-                  <button className="ghost-btn" type="button" disabled={rebuildingPackage || rebuildDisabled} onClick={rebuildPackage}>{rebuildingPackage ? "重构中..." : "解析重构"}</button>
-                  <button className="primary-btn" type="button" disabled={rebuildingPackage} onClick={savePackage}>保存此题</button>
+                  <button className="ghost-btn" type="button" disabled={locked || rebuildingPackage || rebuildDisabled} onClick={rebuildPackage}>{rebuildingPackage ? "重构中..." : "解析重构"}</button>
+                  <button className="primary-btn" type="button" disabled={locked || rebuildingPackage} onClick={savePackage}>保存此题</button>
                 </div>
               </div>
             );
@@ -586,7 +591,7 @@ export function RiskValidation({
                 : pendingCount ? `还有 ${pendingCount} 张图片需要确认。` : "图片已全部确认，可以进入下一步。"}
             </p>
           </div>
-          <button className="primary-btn" type="button" disabled={!canGenerate || generating} onClick={onGeneratePackages}>
+          <button className="primary-btn" type="button" disabled={!canGenerate || locked} onClick={onGeneratePackages}>
             {generating ? "生成中..." : "生成题目包"}
           </button>
         </div>
@@ -611,8 +616,8 @@ export function RiskValidation({
                 </div>
                 <p className="review-summary">{image.summary || "需要人工确认识图结果。"}</p>
                 <div className="review-card-actions">
-                  <button className="tiny-btn confirm-edit-btn" type="button" disabled={confirmed || image.status === "queued" || image.status === "analyzing"} onClick={() => setActiveImageId(image.imageId)}>编辑确认</button>
-                  <button className="tiny-btn" type="button" onClick={() => onDeleteImage(image)}>删除</button>
+                  <button className="tiny-btn confirm-edit-btn" type="button" disabled={locked || confirmed || image.status === "queued" || image.status === "analyzing"} onClick={() => setActiveImageId(image.imageId)}>编辑确认</button>
+                  <button className="tiny-btn" type="button" disabled={locked} onClick={() => onDeleteImage(image)}>删除</button>
                 </div>
               </article>
             );
@@ -637,7 +642,7 @@ export function RiskValidation({
                     <strong>{activeImage.assetName}</strong>
                     <label className="package-source-pane">
                       <span className="risk-hints-title">图片类型</span>
-                      <select className="package-source-select" value={imageTypeDraft || "problem"} onChange={(event) => setImageTypeDraft(event.target.value as QueueImage["contentType"])}>
+                      <select className="package-source-select" value={imageTypeDraft || "problem"} disabled={locked || reanalyzingId === activeImage.imageId} onChange={(event) => setImageTypeDraft(event.target.value as QueueImage["contentType"])}>
                         {IMAGE_CONTENT_TYPE_LABELS.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}
                       </select>
                     </label>
@@ -648,6 +653,7 @@ export function RiskValidation({
                   <textarea
                     className="ocr-editor"
                     value={ocrDraft}
+                    disabled={locked || reanalyzingId === activeImage.imageId}
                     onChange={(event) => setOcrDraft(event.target.value)}
                     aria-label="可编辑识图文本"
                   />
@@ -656,6 +662,7 @@ export function RiskValidation({
 
               <div className="risk-dialog-bottom">
                 {modalError ? <p className="status error risk-modal-error">{modalError}</p> : null}
+                {locked ? <p className="review-summary risk-modal-error">生成中，暂不可编辑。</p> : null}
                 <section className="risk-hints" aria-label="风险提示">
                   <h4 className="risk-hints-title">风险提示</h4>
                   {activeImage.riskItems.length ? (
@@ -694,7 +701,7 @@ export function RiskValidation({
               <button
                 className="ghost-btn"
                 type="button"
-                disabled={reanalyzingId === activeImage.imageId}
+                disabled={locked || reanalyzingId === activeImage.imageId}
                 onClick={async () => {
                   setModalError("");
                   setReanalyzingId(activeImage.imageId);
@@ -716,7 +723,7 @@ export function RiskValidation({
               <button
                 className="primary-btn"
                 type="button"
-                disabled={reanalyzingId === activeImage.imageId}
+                disabled={locked || reanalyzingId === activeImage.imageId}
                 onClick={() => {
                   onConfirmImage(activeImage, [], ocrDraft, imageTypeDraft || "problem");
                   setActiveImageId(null);

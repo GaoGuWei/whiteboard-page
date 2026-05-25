@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Whiteboard } from "./components/Whiteboard";
 import { AssetPanel } from "./components/side/AssetPanel";
 import { TranscriptPanel } from "./components/side/TranscriptPanel";
-import { analyzeImages, analyzeSingleImage, exportDocx, generateProblemPackages, generateTranscript, rebuildProblemPackage, startAnalyzeStream } from "./lib/api";
+import { analyzeImages, analyzeSingleImage, generateProblemPackages, generateTranscript, rebuildProblemPackage, startAnalyzeStream } from "./lib/api";
 import { createImageSourceAdapter } from "./lib/imageSource";
+import { renderMarkdownPreview } from "./lib/markdown";
 import type { AnalysisProgress, AnalyzeStreamEvent, Asset, AssetSource, GeneratePayload, GenerateResult, ImageRef, PinKey, QueueImage, ReviewImage, SectionDefinition, SectionId, SectionsState, SolutionResult } from "./lib/types";
 
 const SECTION_DEFINITIONS: SectionDefinition[] = [
@@ -14,7 +15,16 @@ const SECTION_DEFINITIONS: SectionDefinition[] = [
   { id: "test", title: "五、效果检测", hint: "在此处放入课堂练习或检测题截图" },
 ];
 const TRANSCRIPT_SECTION_ORDER: SectionId[] = ["review", "interest", "knowledge", "mindmap", "test"];
+const ANALYZE_FALLBACK_CONCURRENCY = 3;
 const IMAGE_SOURCE_ADAPTER = createImageSourceAdapter();
+
+function escapeHtml(value: string) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
 
 function orderedSectionDefinitions() {
   const byId = new Map(SECTION_DEFINITIONS.map((section) => [section.id, section]));
@@ -253,7 +263,7 @@ export default function App() {
     image.status === "failed" ? image : { ...image, status: "needs_review" }
   );
 
-  const runAnalyzeTasks = async (payload: GeneratePayload, refs: ImageRef[], concurrency = 2) => {
+  const runAnalyzeTasks = async (payload: GeneratePayload, refs: ImageRef[], concurrency = ANALYZE_FALLBACK_CONCURRENCY) => {
     const results = new Array<ReviewImage>(refs.length);
     let cursor = 0;
     let done = 0;
@@ -427,7 +437,7 @@ export default function App() {
     }
     setGenerating(true);
     setAnalysisProgress((current) => ({ ...current, phase: "generating" }));
-    setTranscriptStatus(regenerate ? "正在基于已确认图片队列重新生成题目包..." : "正在生成题目包...");
+    setTranscriptStatus(regenerate ? "正在并行重新生成题目包..." : "正在并行生成题目包...");
     setTranscriptStatusKind("");
     setActiveTab("transcript");
     setRiskViewActive(true);
@@ -679,20 +689,72 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportWord = async () => {
+  const handleExportPdf = () => {
     try {
-      const blob = await exportDocx(title, transcript);
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `${title || "transcript"}.docx`;
-      anchor.click();
-      URL.revokeObjectURL(url);
+      const iframe = document.createElement("iframe");
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.style.position = "fixed";
+      iframe.style.left = "-10000px";
+      iframe.style.top = "0";
+      iframe.style.width = "794px";
+      iframe.style.height = "1123px";
+      iframe.style.border = "0";
+      iframe.style.opacity = "0";
+
+      const stylesheetHtml = Array.from(document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>('link[rel="stylesheet"], style'))
+        .map((node) => node.outerHTML)
+        .join("\n");
+      const safeTitle = title || "课堂逐字稿";
+      const escapedTitle = escapeHtml(safeTitle);
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument;
+      if (!doc) throw new Error("PDF 导出窗口创建失败");
+      doc.open();
+      doc.write(`<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapedTitle}</title>
+  ${stylesheetHtml}
+  <style>
+    @page { margin: 18mm 16mm; }
+    html, body { width: auto !important; height: auto !important; min-height: 0 !important; overflow: visible !important; background: #fff !important; }
+    body { display: block !important; margin: 0; color: #0f1f3d; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .pdf-export-page { display: block; width: auto; max-width: 760px; height: auto; min-height: 0; margin: 0 auto; overflow: visible; break-inside: auto; }
+    .pdf-export-title { margin: 0 0 18px; color: #0f1f3d; font-size: 24px; font-weight: 900; line-height: 1.25; }
+    .pdf-export-content { display: block; width: auto; height: auto; min-height: 0; overflow: visible; border: 0; border-radius: 0; background: #fff; padding: 0; color: #0f1f3d; font-size: 13px; line-height: 1.72; break-inside: auto; }
+    .pdf-export-content h1, .pdf-export-content h2, .pdf-export-content h3 { break-after: avoid; page-break-after: avoid; }
+    .pdf-export-content p, .pdf-export-content li { break-inside: avoid; page-break-inside: avoid; }
+    .pdf-export-content ul, .pdf-export-content ol { break-inside: auto; page-break-inside: auto; }
+    .pdf-export-content .katex-display { overflow: visible; }
+    .pdf-export-content svg { max-width: 100%; height: auto; }
+    @media print {
+      * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .pdf-export-page { max-width: none; height: auto; overflow: visible; }
+      .pdf-export-content { height: auto; overflow: visible; }
+    }
+  </style>
+</head>
+<body>
+  <main class="pdf-export-page">
+    <h1 class="pdf-export-title">${escapedTitle}</h1>
+    <section class="pdf-export-content">${renderMarkdownPreview(transcript)}</section>
+  </main>
+</body>
+</html>`);
+      doc.close();
+      window.setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        window.setTimeout(() => iframe.remove(), 1000);
+      }, 100);
     } catch (error) {
-      setTranscriptStatus(error instanceof Error ? error.message : "Word 导出失败");
+      setTranscriptStatus(error instanceof Error ? error.message : "PDF 导出失败");
       setTranscriptStatusKind("error");
     }
   };
+
+  const workspaceLocked = generating || analysisProgress.phase === "analyzing" || analysisProgress.phase === "generating";
 
   return (
     <main className="app">
@@ -705,6 +767,7 @@ export default function App() {
         confirmedAssetKeys={confirmedAssetKeys}
         pinsVisible={transcriptGenerated}
         pinnedSections={pinnedSections}
+        locked={workspaceLocked}
         onTitleChange={setTitle}
         onTemplateChange={setTemplate}
         onGenerate={handleGenerate}
@@ -739,6 +802,7 @@ export default function App() {
               usedAssetNames={usedAssetNames}
               status={assetStatus}
               statusKind={assetStatusKind}
+              locked={workspaceLocked}
               onReloadPresetAssets={IMAGE_SOURCE_ADAPTER.supportsPresetAssets ? activatePresetAssets : undefined}
               onUploadFiles={uploadFiles}
               onUploadError={(message) => {
@@ -779,7 +843,7 @@ export default function App() {
                 setTranscriptStatusKind("ok");
               }}
               onExportMd={handleExportMd}
-              onExportWord={handleExportWord}
+              onExportPdf={handleExportPdf}
               onConfirmImage={handleConfirmImage}
               onDeleteImage={handleDeleteRiskImage}
               onReanalyzeImage={handleReanalyzeImage}

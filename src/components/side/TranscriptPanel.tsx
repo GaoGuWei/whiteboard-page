@@ -41,7 +41,7 @@ interface TranscriptPanelProps {
   onToggleRiskView: () => void;
   onLoadSample: () => void;
   onExportMd: () => void;
-  onExportWord: () => void;
+  onExportPdf: () => void;
   onConfirmImage: (image: ReviewImage, corrections: QueueImage["corrections"], correctedOcrText: string, contentType: QueueImage["contentType"]) => void;
   onDeleteImage: (image: ReviewImage) => void;
   onReanalyzeImage: (image: ReviewImage) => Promise<ReviewImage | void>;
@@ -77,7 +77,7 @@ export function TranscriptPanel({
   onToggleRiskView,
   onLoadSample,
   onExportMd,
-  onExportWord,
+  onExportPdf,
   onConfirmImage,
   onDeleteImage,
   onReanalyzeImage,
@@ -114,7 +114,7 @@ export function TranscriptPanel({
           {generating && canRegenerate && !riskViewActive ? "重新生成中..." : "重新生成"}
         </button>
         <button className="ghost-btn" type="button" onClick={onExportMd} disabled={!transcript || riskViewActive}>导出 MD</button>
-        <button className="ghost-btn" type="button" onClick={onExportWord} disabled={!transcript || riskViewActive}>导出 Word</button>
+        <button className="ghost-btn" type="button" onClick={onExportPdf} disabled={!transcript || riskViewActive}>导出 PDF</button>
         <button className="ghost-btn" type="button" onClick={onLoadSample} disabled={riskViewActive}>示例稿</button>
       </div>
 

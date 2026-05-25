@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { callAnalyzeImage } from "../ai/pipeline.mjs";
+import { ANALYZE_CONCURRENCY } from "../config.mjs";
 
 const jobs = new Map();
 const JOB_TTL_MS = 60_000;
-const CONCURRENCY = 2;
-
 function imageRefsFromPayload(payload) {
   const refs = [];
   const seen = new Set();
@@ -83,7 +82,7 @@ async function runJob(job) {
   emit(job, "job-start", { jobId: job.id, total: refs.length, done: 0 });
 
   try {
-    await runPool(refs, CONCURRENCY, async (ref, index) => {
+    await runPool(refs, ANALYZE_CONCURRENCY, async (ref, index) => {
       emit(job, "image-start", { ...ref, imageId: `${ref.sectionId}:${ref.order - 1}:${ref.assetName}`, done, total: refs.length });
       try {
         const image = await callAnalyzeImage({ ...job.payload, image: ref });

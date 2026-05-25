@@ -10,6 +10,7 @@ interface WhiteboardProps {
   confirmedAssetKeys: Set<string>;
   pinsVisible: boolean;
   pinnedSections: Partial<Record<PinKey, boolean>>;
+  locked?: boolean;
   onTitleChange: (value: string) => void;
   onTemplateChange: (value: string) => void;
   onGenerate: () => void;
@@ -51,6 +52,7 @@ export function Whiteboard({
   confirmedAssetKeys,
   pinsVisible,
   pinnedSections,
+  locked = false,
   onTitleChange,
   onTemplateChange,
   onGenerate,
@@ -63,6 +65,7 @@ export function Whiteboard({
   const handleDrop = (event: React.DragEvent<HTMLElement>, sectionId: SectionId) => {
     event.preventDefault();
     event.currentTarget.classList.remove("drag-over");
+    if (locked) return;
     if (event.dataTransfer.getData("application/x-board-asset")) return;
     const assetName = event.dataTransfer.getData("text/plain");
     if (assetName) onAddAsset(sectionId, assetName);
@@ -70,7 +73,7 @@ export function Whiteboard({
 
   const handleCardDrop = (event: React.DragEvent<HTMLDivElement>, sectionId: SectionId, targetIndex: number) => {
     const payload = event.dataTransfer.getData("application/x-board-asset");
-    if (!payload) return;
+    if (!payload || locked) return;
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.classList.remove("drop-target");
@@ -98,21 +101,21 @@ export function Whiteboard({
         <button
           className={`pin-button title-pin ${pinnedSections.title ? "pinned" : ""}`}
           type="button"
-          disabled={!pinsVisible}
+          disabled={!pinsVisible || locked}
           aria-label={pinnedSections.title ? "取消锁定标题模块" : "锁定标题模块"}
           title={pinnedSections.title ? "取消锁定标题模块" : "锁定标题模块"}
           onClick={() => onTogglePin("title")}
         >
           <PinIcon />
         </button>
-        <input className="lesson-title" value={title} onChange={(event) => onTitleChange(event.target.value)} aria-label="课程标题" />
-        <select className="template-select" value={template} onChange={(event) => onTemplateChange(event.target.value)}>
+        <input className="lesson-title" value={title} disabled={locked} onChange={(event) => onTitleChange(event.target.value)} aria-label="课程标题" />
+        <select className="template-select" value={template} disabled={locked} onChange={(event) => onTemplateChange(event.target.value)}>
           <option value="new">新授课</option>
           <option value="exercise">习题讲评</option>
           <option value="review">复习课</option>
           <option value="open">公开课</option>
         </select>
-        <button className="primary-btn" type="button" onClick={onGenerate}>生成逐字稿</button>
+        <button className="primary-btn" type="button" disabled={locked} onClick={onGenerate}>生成逐字稿</button>
       </header>
 
       <div className="board-grid">
@@ -123,10 +126,11 @@ export function Whiteboard({
               key={section.id}
               className={`board-section ${section.wide ? "section-knowledge" : ""}`}
               onClick={(event) => {
-                if ((event.target as HTMLElement).closest(".remove-asset") || (event.target as HTMLElement).closest(".section-note") || (event.target as HTMLElement).closest(".pin-button")) return;
+                if (locked || (event.target as HTMLElement).closest(".remove-asset") || (event.target as HTMLElement).closest(".section-note") || (event.target as HTMLElement).closest(".pin-button")) return;
                 if (selectedAssetName) onAddAsset(section.id, selectedAssetName);
               }}
               onDragOver={(event) => {
+                if (locked) return;
                 event.preventDefault();
                 event.currentTarget.classList.add("drag-over");
               }}
@@ -136,7 +140,7 @@ export function Whiteboard({
               <button
                 className={`pin-button section-pin ${pinnedSections[section.id] ? "pinned" : ""}`}
                 type="button"
-                disabled={!pinsVisible}
+                disabled={!pinsVisible || locked}
                 aria-label={pinnedSections[section.id] ? `取消锁定${section.title}` : `锁定${section.title}`}
                 title={pinnedSections[section.id] ? `取消锁定${section.title}` : `锁定${section.title}`}
                 onClick={(event) => {
@@ -153,16 +157,21 @@ export function Whiteboard({
                     {data.assets.map((asset: Asset, index) => (
                       <div
                         className="assigned-card"
-                        draggable
+                        draggable={!locked}
                         data-section-id={section.id}
                         data-index={index}
                         key={`${section.id}-${asset.name}`}
                         onDragStart={(event) => {
+                          if (locked) {
+                            event.preventDefault();
+                            return;
+                          }
                           event.currentTarget.classList.add("dragging");
                           event.dataTransfer.effectAllowed = "move";
                           event.dataTransfer.setData("application/x-board-asset", JSON.stringify({ sectionId: section.id, index }));
                         }}
                         onDragOver={(event) => {
+                          if (locked) return;
                           if (!Array.from(event.dataTransfer.types).includes("application/x-board-asset")) return;
                           event.preventDefault();
                           event.stopPropagation();
@@ -178,12 +187,12 @@ export function Whiteboard({
                         <img src={asset.url} alt={asset.name} />
                         <span className="order-pill">第 {index + 1} 张</span>
                         {confirmedAssetKeys.has(`${section.id}:${asset.name}`) ? <span className="confirmed-pill">已确认</span> : null}
-                        <button className="remove-asset" type="button" onClick={(event) => { event.stopPropagation(); onRemoveAsset(section.id, asset.name); }} aria-label={`移除 ${asset.name}`}>×</button>
+                        <button className="remove-asset" type="button" disabled={locked} onClick={(event) => { event.stopPropagation(); onRemoveAsset(section.id, asset.name); }} aria-label={`移除 ${asset.name}`}>×</button>
                         <div className="assigned-footer">
                           <span className="assigned-name">{asset.name}</span>
                           <div className="asset-order-actions" aria-label={`${asset.name} 排序`}>
-                            <button className="order-btn" type="button" disabled={index === 0} onClick={(event) => { event.stopPropagation(); onMoveAsset(section.id, index, index - 1); }}>↑</button>
-                            <button className="order-btn" type="button" disabled={index === data.assets.length - 1} onClick={(event) => { event.stopPropagation(); onMoveAsset(section.id, index, index + 1); }}>↓</button>
+                            <button className="order-btn" type="button" disabled={locked || index === 0} onClick={(event) => { event.stopPropagation(); onMoveAsset(section.id, index, index - 1); }}>↑</button>
+                            <button className="order-btn" type="button" disabled={locked || index === data.assets.length - 1} onClick={(event) => { event.stopPropagation(); onMoveAsset(section.id, index, index + 1); }}>↓</button>
                           </div>
                         </div>
                       </div>
@@ -196,7 +205,7 @@ export function Whiteboard({
                   </div>
                 )}
               </div>
-              <textarea className="section-note" placeholder="填写本环节教学目标或提示..." value={data.note} onChange={(event) => onNoteChange(section.id, event.target.value)} />
+              <textarea className="section-note" placeholder={locked ? "生成中，暂不可编辑" : "填写本环节教学目标或提示..."} value={data.note} disabled={locked} onChange={(event) => onNoteChange(section.id, event.target.value)} />
             </article>
           );
         })}

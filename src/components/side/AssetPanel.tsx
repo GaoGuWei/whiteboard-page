@@ -9,6 +9,7 @@ interface AssetPanelProps {
   usedAssetNames: Set<string>;
   status: string;
   statusKind: "ok" | "error" | "";
+  locked?: boolean;
   onReloadPresetAssets?: () => void;
   onUploadFiles: (files: File[]) => void;
   onUploadError: (message: string) => void;
@@ -24,6 +25,7 @@ export function AssetPanel({
   usedAssetNames,
   status,
   statusKind,
+  locked = false,
   onReloadPresetAssets,
   onUploadFiles,
   onUploadError,
@@ -54,6 +56,7 @@ export function AssetPanel({
         type="file"
         accept="image/png,image/jpeg"
         multiple
+        disabled={locked}
         onChange={(event) => {
           handleFiles(event.target.files);
           event.target.value = "";
@@ -65,6 +68,7 @@ export function AssetPanel({
         type="file"
         accept="image/png,image/jpeg"
         multiple
+        disabled={locked}
         {...{ webkitdirectory: "" }}
         onChange={(event) => {
           handleFiles(event.target.files);
@@ -83,15 +87,15 @@ export function AssetPanel({
           aria-label="本次素材来源"
         />
         {mode === "cloud" && onReloadPresetAssets ? (
-          <button className="tiny-btn" type="button" onClick={onReloadPresetAssets}>示例</button>
+          <button className="tiny-btn" type="button" disabled={locked} onClick={onReloadPresetAssets}>示例</button>
         ) : null}
-        <button className="tiny-btn" type="button" onClick={() => fileInputRef.current?.click()}>图片</button>
-        <button className="tiny-btn" type="button" onClick={() => folderInputRef.current?.click()}>文件夹</button>
+        <button className="tiny-btn" type="button" disabled={locked} onClick={() => fileInputRef.current?.click()}>图片</button>
+        <button className="tiny-btn" type="button" disabled={locked} onClick={() => folderInputRef.current?.click()}>文件夹</button>
       </div>
 
       <div className="asset-title-row">
         <h2 className="asset-title">图片 ({assets.length})</h2>
-        <button className="ghost-btn" type="button" onClick={onClearBoard}>清空白板</button>
+        <button className="ghost-btn" type="button" disabled={locked} onClick={onClearBoard}>清空白板</button>
       </div>
       <div className={`status ${statusKind}`}>{status}</div>
 
@@ -103,9 +107,15 @@ export function AssetPanel({
             <article
               className={`asset-card ${used ? "used" : ""} ${selected ? "selected" : ""}`}
               key={asset.name}
-              draggable
-              onClick={() => onSelectAsset(asset.name)}
+              draggable={!locked}
+              onClick={() => {
+                if (!locked) onSelectAsset(asset.name);
+              }}
               onDragStart={(event) => {
+                if (locked) {
+                  event.preventDefault();
+                  return;
+                }
                 event.dataTransfer.effectAllowed = "copy";
                 event.dataTransfer.setData("text/plain", asset.name);
               }}
@@ -123,7 +133,7 @@ export function AssetPanel({
         })}
       </div>
 
-      <button className="upload-card" type="button" onClick={() => folderInputRef.current?.click()}>
+      <button className="upload-card" type="button" disabled={locked} onClick={() => folderInputRef.current?.click()}>
         <span className="plus">+</span>
         <span>上传图片 / 选择文件夹</span>
         <span className="hint">支持 PNG / JPG / JPEG，上传后拖入左侧板块</span>

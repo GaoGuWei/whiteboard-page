@@ -19,6 +19,8 @@ export const AI_BASE_URL = (
 export const AI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 export const GEOMETRY_MODEL = process.env.GEOMETRY_MODEL || AI_MODEL;
 export const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 240000);
+export const ANALYZE_CONCURRENCY = Math.max(1, Number(process.env.ANALYZE_CONCURRENCY || 3));
+export const SOLUTION_CONCURRENCY = Math.max(1, Number(process.env.SOLUTION_CONCURRENCY || 2));
 
 export const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg"]);
 export const TEMPLATE_LABELS = {

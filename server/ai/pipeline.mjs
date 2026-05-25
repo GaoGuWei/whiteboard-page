@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import { GEOMETRY_MODEL, MIME, SECTION_ORDER, TEMPLATE_LABELS } from "../config.mjs";
+import { ANALYZE_CONCURRENCY, GEOMETRY_MODEL, MIME, SECTION_ORDER, SOLUTION_CONCURRENCY, TEMPLATE_LABELS } from "../config.mjs";
 import { safeImagePath } from "../assets.mjs";
 import { cleanText, validateGeneratePayload } from "../validation.mjs";
 import { readFile } from "node:fs/promises";
@@ -700,7 +700,7 @@ export async function callAnalyze(payload) {
     return { mode: "mock", images, analysis: images.map((image) => image.ocrText).join("\n\n"), needsReview: false, reviewItems: [], pendingCount: 0, confirmedCount: images.length, warnings };
   }
 
-  const images = await runPool(imageUnits(normalized), 2, (unit) => analyzeSingleImage(normalized, unit, warnings));
+  const images = await runPool(imageUnits(normalized), ANALYZE_CONCURRENCY, (unit) => analyzeSingleImage(normalized, unit, warnings));
   const riskImages = images.filter((image) => image.status === "needs_review");
   return {
     mode: "ai",
@@ -755,15 +755,25 @@ async function generateSolutions(normalized, analysis, confirmedImages, warnings
     };
   }
 
-  const rawSolutions = await createResponse([
-    { type: "input_text", text: buildProblemSolutionPrompt(normalized, analysis, confirmedImages) },
-  ], { model: GEOMETRY_MODEL });
-  let solutions = normalizeSolutions(parseJsonObject(rawSolutions, { solutions: [] }), confirmedImages);
+  const solutionWarnings = [];
+  const generatedSolutions = await runPool(confirmedImages, SOLUTION_CONCURRENCY, async (image, index) => {
+    try {
+      const rawSolution = await createResponse([
+        { type: "input_text", text: buildProblemSolutionPrompt(normalized, analysis, [image]) },
+      ], { model: GEOMETRY_MODEL });
+      const [solution] = normalizeSolutions(parseJsonObject(rawSolution, { solutions: [] }), [image]);
+      if (solution) return solution;
+      solutionWarnings.push(`第 ${index + 1} 题“${image.assetName}”未返回有效题目包，已生成待编辑占位题目包。`);
+    } catch (error) {
+      solutionWarnings.push(`第 ${index + 1} 题“${image.assetName}”题目包生成失败：${error instanceof Error ? error.message : "未知错误"}`);
+    }
+    return fallbackSolutionFromConfirmedImages([image])[0];
+  });
+  let solutions = generatedSolutions.filter(Boolean);
   let validation = normalizeSolutionValidation(parseJsonObject(await createResponse([
     { type: "input_text", text: buildSolutionValidationPrompt(normalized, solutions) },
   ], { model: GEOMETRY_MODEL }), {}), solutions);
   let repairedCount = 0;
-  const solutionWarnings = [];
 
   if (!validation.passed) {
     repairedCount = 1;
