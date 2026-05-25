@@ -1,4 +1,4 @@
-import type { AnalysisProgress, Asset, QueueImage, ReviewImage } from "../../lib/types";
+import type { AnalysisProgress, Asset, GenerateResult, QueueImage, ReviewImage, SolutionResult } from "../../lib/types";
 import { renderMarkdownPreview } from "../../lib/markdown";
 import { RiskValidation } from "./RiskValidation";
 
@@ -22,13 +22,16 @@ interface TranscriptPanelProps {
   transcript: string;
   viewMode: "edit" | "preview";
   status: string;
-  statusKind: "ok" | "error" | "";
+  statusKind: "ok" | "error" | "review" | "";
   riskButtonLabel: string;
   riskButtonDisabled: boolean;
   riskViewActive: boolean;
   reviewImages: ReviewImage[];
   assets: Asset[];
   queue: QueueImage[];
+  packages: SolutionResult[];
+  packageValidation?: GenerateResult["solutionValidation"];
+  packageWarnings: string[];
   progress: AnalysisProgress;
   canGenerateQueue: boolean;
   canRegenerate: boolean;
@@ -39,10 +42,15 @@ interface TranscriptPanelProps {
   onLoadSample: () => void;
   onExportMd: () => void;
   onExportWord: () => void;
-  onConfirmImage: (image: ReviewImage, corrections: QueueImage["corrections"], correctedOcrText: string) => void;
+  onConfirmImage: (image: ReviewImage, corrections: QueueImage["corrections"], correctedOcrText: string, contentType: QueueImage["contentType"]) => void;
   onDeleteImage: (image: ReviewImage) => void;
   onReanalyzeImage: (image: ReviewImage) => Promise<ReviewImage | void>;
-  onGenerateQueue: () => void;
+  onPackagesChange: (packages: SolutionResult[]) => void;
+  onDeletePackage: (pkg: SolutionResult) => void;
+  onRebuildPackage: (pkg: SolutionResult, source: SolutionResult["solutionSource"], guidance: string) => Promise<SolutionResult>;
+  onGeneratePackages: () => void;
+  onRegeneratePackages: () => void;
+  onGenerateTranscript: () => void;
   onRegenerate: () => void;
 }
 
@@ -57,6 +65,9 @@ export function TranscriptPanel({
   reviewImages,
   assets,
   queue,
+  packages,
+  packageValidation,
+  packageWarnings,
   progress,
   canGenerateQueue,
   canRegenerate,
@@ -70,7 +81,12 @@ export function TranscriptPanel({
   onConfirmImage,
   onDeleteImage,
   onReanalyzeImage,
-  onGenerateQueue,
+  onPackagesChange,
+  onDeletePackage,
+  onRebuildPackage,
+  onGeneratePackages,
+  onRegeneratePackages,
+  onGenerateTranscript,
   onRegenerate,
 }: TranscriptPanelProps) {
   const shouldShowDuration = statusKind === "ok" && Boolean(transcript.trim()) && !riskViewActive && progress.phase !== "generating";
@@ -107,13 +123,21 @@ export function TranscriptPanel({
           images={reviewImages}
           assets={assets}
           queue={queue}
+          packages={packages}
+          packageValidation={packageValidation}
+          packageWarnings={packageWarnings}
           progress={progress}
           canGenerate={canGenerateQueue}
           generating={generating}
           onConfirmImage={onConfirmImage}
           onDeleteImage={onDeleteImage}
           onReanalyzeImage={onReanalyzeImage}
-          onGenerateQueue={onGenerateQueue}
+          onPackagesChange={onPackagesChange}
+          onDeletePackage={onDeletePackage}
+          onRebuildPackage={onRebuildPackage}
+          onGeneratePackages={onGeneratePackages}
+          onRegeneratePackages={onRegeneratePackages}
+          onGenerateTranscript={onGenerateTranscript}
         />
       ) : (
         <>

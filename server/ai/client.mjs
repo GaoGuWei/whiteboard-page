@@ -16,8 +16,9 @@ export function normalizeApiError(status, detail) {
   return `AI 生成失败：${status}${redacted ? ` ${redacted}` : ""}`;
 }
 
-export async function createResponse(content) {
+export async function createResponse(content, options = {}) {
   const apiKey = getApiKey();
+  const model = options.model || AI_MODEL;
   let response;
   try {
     response = await fetch(`${AI_BASE_URL}/responses`, {
@@ -28,7 +29,7 @@ export async function createResponse(content) {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: AI_MODEL,
+        model,
         input: [{ role: "user", content }],
       }),
     });

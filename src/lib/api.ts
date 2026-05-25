@@ -1,9 +1,9 @@
-import type { AnalyzeStreamStartResult, Asset, AssetSource, AssetUploadResult, GeneratePayload, GenerateResult, ImageRef, PinKey, ReviewImage, ReviewResult, QueueImage } from "./types";
+import type { AnalyzeStreamStartResult, Asset, AssetSource, AssetUploadResult, GeneratePayload, GenerateResult, ImageRef, PinKey, ReviewImage, ReviewResult, QueueImage, SolutionPackageResult, SolutionRebuildResult, SolutionResult } from "./types";
 
 async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const data = await response.json().catch(() => ({}));
-  if (response.status === 404 && (url.includes("/api/analyze-image") || url.includes("/api/analyze-stream"))) {
+  if (response.status === 404 && (url.includes("/api/analyze-image") || url.includes("/api/analyze-stream") || url.includes("/api/solutions"))) {
     throw new Error("后端服务版本过旧，请重启 API 服务后再试。");
   }
   if (response.status === 502 || response.status === 504) {
@@ -71,12 +71,39 @@ export async function generateTranscript(
   options: {
     previousTranscript?: string;
     pinnedSections?: Partial<Record<PinKey, boolean>>;
+    analysis?: string;
+    solutions?: SolutionResult[];
   } = {},
 ): Promise<GenerateResult> {
   return jsonRequest("/api/generate", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...payload, confirmedImages, ...options }),
+  });
+}
+
+export async function generateProblemPackages(
+  payload: GeneratePayload,
+  confirmedImages: QueueImage[],
+): Promise<SolutionPackageResult> {
+  return jsonRequest("/api/solutions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...payload, confirmedImages }),
+  });
+}
+
+export async function rebuildProblemPackage(
+  payload: GeneratePayload,
+  confirmedImage: QueueImage,
+  solution: SolutionResult,
+  solutionSource: SolutionResult["solutionSource"],
+  rebuildGuidance: string,
+): Promise<SolutionRebuildResult> {
+  return jsonRequest("/api/solutions/rebuild", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...payload, confirmedImage, solution, solutionSource, rebuildGuidance }),
   });
 }
 

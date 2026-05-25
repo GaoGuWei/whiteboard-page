@@ -1,5 +1,5 @@
 import katex from "katex";
-import { renderGraphBlock } from "./graphPreview";
+import { renderGraphBlock, renderMathGraphJsonBlock } from "./graphPreview";
 import { escapeHtml } from "./mathPreview";
 
 export interface MarkdownPreviewResult {
@@ -141,6 +141,7 @@ function renderCodeBlock(lang: string, source: string, depth: number, warnings: 
   const cleanLang = String(lang || "").trim().toLowerCase();
   const body = source.replace(/\s+$/, "");
   if (cleanLang === "graph") return renderGraphBlock(body);
+  if (cleanLang === "math-graph-json") return renderMathGraphJsonBlock(body);
   if (depth < 3 && (cleanLang === "markdown" || cleanLang === "md" || (!cleanLang && looksLikeMarkdown(body)))) {
     return buildMarkdownHtml(body, depth + 1, warnings);
   }

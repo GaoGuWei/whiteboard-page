@@ -74,6 +74,8 @@ pm2 restart whiteboard-page --update-env
 
 云端生成请求可能比普通网页请求更久，建议 Nginx 代理配置保留 `proxy_read_timeout 300s;`。后端 AI 请求超时可用 `AI_REQUEST_TIMEOUT_MS` 配置，默认 `240000` 毫秒。
 
+几何证明、圆锥曲线等复杂题解可以单独配置 `GEOMETRY_MODEL`；未配置时默认使用 `OPENAI_MODEL`。
+
 ## AI 生成
 
 未配置 `YI_API_KEY` 时，系统会返回本地示例逐字稿，方便先验证完整工作流。

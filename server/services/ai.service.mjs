@@ -1,4 +1,4 @@
-import { callAnalyze, callAnalyzeImage, callOpenAI } from "../ai/pipeline.mjs";
+import { callAnalyze, callAnalyzeImage, callOpenAI, callRebuildSolution, callSolutions } from "../ai/pipeline.mjs";
 import { redactSecrets } from "../ai/client.mjs";
 
 function normalizeAiError(error, fallback) {
@@ -33,5 +33,21 @@ export async function generatePayload(payload) {
     return await callOpenAI(payload);
   } catch (error) {
     throw normalizeAiError(error, "Generation failed");
+  }
+}
+
+export async function solutionsPayload(payload) {
+  try {
+    return await callSolutions(payload);
+  } catch (error) {
+    throw normalizeAiError(error, "Solutions failed");
+  }
+}
+
+export async function rebuildSolutionPayload(payload) {
+  try {
+    return await callRebuildSolution(payload);
+  } catch (error) {
+    throw normalizeAiError(error, "Solution rebuild failed");
   }
 }

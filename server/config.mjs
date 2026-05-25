@@ -17,6 +17,7 @@ export const AI_BASE_URL = (
   "https://api.apiyi.com/v1"
 ).replace(/\/+$/, "");
 export const AI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+export const GEOMETRY_MODEL = process.env.GEOMETRY_MODEL || AI_MODEL;
 export const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 240000);
 
 export const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg"]);

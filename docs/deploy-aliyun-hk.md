@@ -75,6 +75,7 @@ UPLOAD_TTL_HOURS=24
 AI_BASE_URL=https://api.apiyi.com/v1
 YI_API_KEY=你的真实密钥
 OPENAI_MODEL=gpt-4.1-mini
+GEOMETRY_MODEL=gpt-4.1-mini
 AI_REQUEST_TIMEOUT_MS=240000
 
 BASIC_AUTH_USER=whiteboard
@@ -227,7 +228,7 @@ git pull origin feature/new-whiteboard-page
 检查服务器 `.env`：
 
 ```bash
-grep -E '^(PORT|VITE_APP_MODE|IMAGE_DIR|UPLOAD_DIR|UPLOAD_TTL_HOURS|AI_BASE_URL|OPENAI_MODEL|BASIC_AUTH_USER)=' .env
+grep -E '^(PORT|VITE_APP_MODE|IMAGE_DIR|UPLOAD_DIR|UPLOAD_TTL_HOURS|AI_BASE_URL|OPENAI_MODEL|GEOMETRY_MODEL|AI_REQUEST_TIMEOUT_MS|BASIC_AUTH_USER)=' .env
 test -n "$(grep '^YI_API_KEY=' .env | cut -d= -f2-)" && echo "YI_API_KEY is set"
 ```
 
@@ -241,6 +242,7 @@ UPLOAD_DIR=/srv/whiteboard/uploads
 UPLOAD_TTL_HOURS=24
 AI_BASE_URL=https://api.apiyi.com/v1
 OPENAI_MODEL=gpt-4.1-mini
+GEOMETRY_MODEL=gpt-4.1-mini
 AI_REQUEST_TIMEOUT_MS=240000
 BASIC_AUTH_USER=whiteboard
 ```

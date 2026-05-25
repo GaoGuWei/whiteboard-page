@@ -1,0 +1,366 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">逐字稿生成工作台 - 本项目系统架构图</title>
+  <desc id="desc">基于当前代码结构整理的系统架构图，并标注框架预留但尚未实现的模块。</desc>
+  <defs>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="0.55" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fffaf2"/>
+    </linearGradient>
+    <linearGradient id="blueBand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#eff7ff"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="greenBand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f1fbf4"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="purpleBand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f7f1ff"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#21436b" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .bg { fill: url(#pageBg); }
+      .title { font: 800 32px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #10224a; letter-spacing: 0; }
+      .layerLabel { font: 800 22px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0b63ce; }
+      .layerBox { fill: #f8fbff; stroke: #8ab7f1; stroke-width: 1.2; rx: 8; }
+      .band { fill: rgba(255,255,255,0.9); stroke: #aac6e8; stroke-width: 1; rx: 8; }
+      .card { fill: #ffffff; stroke: #9cc2ee; stroke-width: 1.1; rx: 8; filter: url(#softShadow); }
+      .appCard { fill: #fbfff9; stroke: #9acb9a; stroke-dasharray: 5 4; }
+      .dataCard { fill: #fdf9ff; stroke: #c3a6e8; }
+      .infraCard { fill: #fffaf0; stroke: #f3b45f; }
+      .externalCard { fill: #fbf7ff; stroke: #c8aae8; }
+      .flowCard { fill: #f8fbff; stroke: #9cc2ee; }
+      .h { font: 800 16px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #075eb8; }
+      .hGreen { fill: #137333; }
+      .hPurple { fill: #6b33a8; }
+      .hOrange { fill: #c35600; }
+      .body { font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #1f2937; }
+      .small { font: 500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #526070; }
+      .tiny { font: 600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #64748b; }
+      .badge { fill: #fff1f2; stroke: #fb7185; stroke-width: 1; rx: 8; }
+      .badgeText { font: 800 11px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #be123c; }
+      .done { fill: #ecfdf5; stroke: #22c55e; stroke-width: 1; rx: 8; }
+      .doneText { font: 800 11px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #15803d; }
+      .partial { fill: #fff7ed; stroke: #fb923c; stroke-width: 1; rx: 8; }
+      .partialText { font: 800 11px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #c2410c; }
+      .line { stroke: #64748b; stroke-width: 1.4; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #94a3b8; stroke-width: 1.4; stroke-dasharray: 6 5; fill: none; marker-end: url(#arrow); }
+      .sectionTitle { font: 800 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #10224a; }
+      .note { font: 600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #334155; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="1000"/>
+  <text class="title" x="800" y="48" text-anchor="middle">逐字稿生成工作台 - 本项目系统架构图</text>
+
+  <!-- Layer labels -->
+  <rect class="layerBox" x="20" y="78" width="118" height="94"/>
+  <text class="layerLabel" x="79" y="133" text-anchor="middle">访问层</text>
+  <rect class="layerBox" x="20" y="187" width="118" height="190"/>
+  <text class="layerLabel" x="79" y="287" text-anchor="middle">前端层</text>
+  <rect class="layerBox" x="20" y="392" width="118" height="168"/>
+  <text class="layerLabel" x="79" y="482" text-anchor="middle">后端层</text>
+  <rect class="layerBox" x="20" y="575" width="118" height="120"/>
+  <text class="layerLabel" x="79" y="642" text-anchor="middle">数据层</text>
+  <rect class="layerBox" x="20" y="710" width="118" height="100"/>
+  <text class="layerLabel" x="79" y="767" text-anchor="middle">基础设施</text>
+  <rect class="layerBox" x="20" y="825" width="118" height="105"/>
+  <text class="layerLabel" x="79" y="883" text-anchor="middle">处理流程</text>
+
+  <!-- Access layer -->
+  <rect class="band" x="155" y="78" width="1185" height="94"/>
+  <rect class="card" x="180" y="96" width="170" height="58"/>
+  <text class="h" x="235" y="120">用户</text>
+  <text class="body" x="235" y="142">教师 / 备课者</text>
+  <path d="M204 122 a18 18 0 1 0 36 0 a18 18 0 1 0 -36 0" fill="#2554a4" opacity="0.95"/>
+  <path d="M190 150 q32 -34 64 0" fill="#2554a4"/>
+
+  <rect class="card" x="375" y="96" width="780" height="58"/>
+  <text class="h" x="425" y="120">Web 工作台</text>
+  <text class="body" x="425" y="142">白板编排 / 图片上传 / 风险校验 / 逐字稿编辑 / Word 导出</text>
+  <rect class="done" x="1048" y="108" width="82" height="24"/>
+  <text class="doneText" x="1089" y="125" text-anchor="middle">已实现</text>
+
+  <rect class="card externalCard" x="1175" y="96" width="140" height="58"/>
+  <text class="hPurple" x="1245" y="120" text-anchor="middle">API 接口</text>
+  <text class="small" x="1245" y="142" text-anchor="middle">仅内部 /api</text>
+  <rect class="badge" x="1248" y="103" width="54" height="20"/>
+  <text class="badgeText" x="1275" y="117" text-anchor="middle">未实现</text>
+
+  <!-- Frontend layer -->
+  <rect class="band" x="155" y="187" width="1185" height="190"/>
+  <rect class="card appCard" x="170" y="205" width="178" height="150"/>
+  <text class="hGreen" x="259" y="228" text-anchor="middle">工作台状态</text>
+  <text class="body" x="190" y="256">• App.tsx 总状态</text>
+  <text class="body" x="190" y="282">• 教学环节 sections</text>
+  <text class="body" x="190" y="308">• 队列 / 题目包 / 图钉</text>
+  <text class="body" x="190" y="334">• 云端 / 本地模式</text>
+
+  <rect class="card appCard" x="363" y="205" width="178" height="150"/>
+  <text class="hGreen" x="452" y="228" text-anchor="middle">白板编排</text>
+  <text class="body" x="383" y="256">• 五个教学模块</text>
+  <text class="body" x="383" y="282">• 拖拽 / 点击放图</text>
+  <text class="body" x="383" y="308">• 目标与提示</text>
+  <text class="body" x="383" y="334">• 图片排序 / 移除</text>
+
+  <rect class="card appCard" x="556" y="205" width="178" height="150"/>
+  <text class="hGreen" x="645" y="228" text-anchor="middle">素材面板</text>
+  <text class="body" x="576" y="256">• 服务器示例素材</text>
+  <text class="body" x="576" y="282">• 浏览器上传图片</text>
+  <text class="body" x="576" y="308">• 文件夹导入</text>
+  <text class="body" x="576" y="334">• 缩略图与已用标记</text>
+
+  <rect class="card appCard" x="749" y="205" width="178" height="150"/>
+  <text class="hGreen" x="838" y="228" text-anchor="middle">风险校验</text>
+  <text class="body" x="769" y="256">• SSE 进度展示</text>
+  <text class="body" x="769" y="282">• OCR 风险项确认</text>
+  <text class="body" x="769" y="308">• math-graph 预览</text>
+  <text class="body" x="769" y="334">• 题目包校验</text>
+
+  <rect class="card appCard" x="942" y="205" width="178" height="150"/>
+  <text class="hGreen" x="1031" y="228" text-anchor="middle">逐字稿面板</text>
+  <text class="body" x="962" y="256">• Markdown 编辑</text>
+  <text class="body" x="962" y="282">• KaTeX 渲染</text>
+  <text class="body" x="962" y="308">• 局部锁定再生成</text>
+  <text class="body" x="962" y="334">• MD / DOCX 导出</text>
+
+  <rect class="card appCard" x="1135" y="205" width="178" height="150"/>
+  <text class="hGreen" x="1224" y="228" text-anchor="middle">用户协作</text>
+  <text class="body" x="1155" y="256">• 用户注册 / 登录</text>
+  <text class="body" x="1155" y="282">• 团队空间</text>
+  <text class="body" x="1155" y="308">• 版本历史</text>
+  <text class="body" x="1155" y="334">• 共享与权限</text>
+  <rect class="badge" x="1242" y="213" width="58" height="22"/>
+  <text class="badgeText" x="1271" y="228" text-anchor="middle">未实现</text>
+
+  <!-- Backend layer -->
+  <rect class="band" x="155" y="392" width="1185" height="168"/>
+  <rect class="card" x="170" y="410" width="150" height="66"/>
+  <text class="h" x="245" y="434" text-anchor="middle">Express App</text>
+  <text class="small" x="245" y="456" text-anchor="middle">静态托管 / SPA fallback</text>
+
+  <rect class="card" x="335" y="410" width="150" height="66"/>
+  <text class="h" x="410" y="434" text-anchor="middle">素材服务</text>
+  <text class="small" x="410" y="456" text-anchor="middle">列表 / 上传 / 图片流</text>
+
+  <rect class="card" x="500" y="410" width="150" height="66"/>
+  <text class="h" x="575" y="434" text-anchor="middle">识图任务</text>
+  <text class="small" x="575" y="456" text-anchor="middle">SSE / 并发 2 / 风险项</text>
+
+  <rect class="card" x="665" y="410" width="150" height="66"/>
+  <text class="h" x="740" y="434" text-anchor="middle">AI Pipeline</text>
+  <text class="small" x="740" y="456" text-anchor="middle">prompt / mock fallback</text>
+
+  <rect class="card" x="830" y="410" width="150" height="66"/>
+  <text class="h" x="905" y="434" text-anchor="middle">题目包服务</text>
+  <text class="small" x="905" y="456" text-anchor="middle">题解生成 / 修复 / 校验</text>
+
+  <rect class="card" x="995" y="410" width="150" height="66"/>
+  <text class="h" x="1070" y="434" text-anchor="middle">逐字稿服务</text>
+  <text class="small" x="1070" y="456" text-anchor="middle">生成 / 图钉合并</text>
+
+  <rect class="card" x="1160" y="410" width="150" height="66"/>
+  <text class="h" x="1235" y="434" text-anchor="middle">导出服务</text>
+  <text class="small" x="1235" y="456" text-anchor="middle">Markdown / Word</text>
+
+  <rect class="card" x="170" y="492" width="186" height="48"/>
+  <text class="h" x="263" y="515" text-anchor="middle">Basic Auth</text>
+  <text class="small" x="263" y="533" text-anchor="middle">可选访问口令</text>
+  <rect class="partial" x="290" y="499" width="50" height="20"/>
+  <text class="partialText" x="315" y="513" text-anchor="middle">轻量</text>
+
+  <rect class="card" x="378" y="492" width="186" height="48"/>
+  <text class="h" x="471" y="515" text-anchor="middle">中间件</text>
+  <text class="small" x="471" y="533" text-anchor="middle">async / 404 / error</text>
+
+  <rect class="card" x="586" y="492" width="230" height="48"/>
+  <text class="h" x="701" y="515" text-anchor="middle">任务队列持久化</text>
+  <text class="small" x="701" y="533" text-anchor="middle">当前仅内存 Map + TTL</text>
+  <rect class="badge" x="742" y="499" width="58" height="20"/>
+  <text class="badgeText" x="771" y="513" text-anchor="middle">未实现</text>
+
+  <rect class="card" x="838" y="492" width="230" height="48"/>
+  <text class="h" x="953" y="515" text-anchor="middle">开放 Webhook / SDK</text>
+  <text class="small" x="953" y="533" text-anchor="middle">无第三方回调入口</text>
+  <rect class="badge" x="994" y="499" width="58" height="20"/>
+  <text class="badgeText" x="1023" y="513" text-anchor="middle">未实现</text>
+
+  <rect class="card" x="1090" y="492" width="220" height="48"/>
+  <text class="h" x="1200" y="515" text-anchor="middle">用户权限 / JWT</text>
+  <text class="small" x="1200" y="533" text-anchor="middle">未接入账号体系</text>
+  <rect class="badge" x="1240" y="499" width="58" height="20"/>
+  <text class="badgeText" x="1269" y="513" text-anchor="middle">未实现</text>
+
+  <!-- Data layer -->
+  <rect class="band" x="155" y="575" width="1185" height="120"/>
+  <rect class="card dataCard" x="170" y="595" width="210" height="72"/>
+  <text class="hPurple" x="275" y="619" text-anchor="middle">本地文件系统</text>
+  <text class="small" x="275" y="642" text-anchor="middle">IMAGE_DIR / 预置图片</text>
+  <text class="small" x="275" y="660" text-anchor="middle">safeDir / safeImagePath</text>
+
+  <rect class="card dataCard" x="405" y="595" width="210" height="72"/>
+  <text class="hPurple" x="510" y="619" text-anchor="middle">临时上传目录</text>
+  <text class="small" x="510" y="642" text-anchor="middle">UPLOAD_DIR / .whiteboard-uploads</text>
+  <text class="small" x="510" y="660" text-anchor="middle">大小与数量限制</text>
+
+  <rect class="card dataCard" x="640" y="595" width="210" height="72"/>
+  <text class="hPurple" x="745" y="619" text-anchor="middle">浏览器内状态</text>
+  <text class="small" x="745" y="642" text-anchor="middle">白板 / 队列 / 编辑稿</text>
+  <text class="small" x="745" y="660" text-anchor="middle">刷新后不持久保存</text>
+
+  <rect class="card dataCard" x="875" y="595" width="210" height="72"/>
+  <text class="hPurple" x="980" y="619" text-anchor="middle">数据库 / Redis</text>
+  <text class="small" x="980" y="642" text-anchor="middle">项目记录 / 缓存 / 队列</text>
+  <text class="small" x="980" y="660" text-anchor="middle">当前未接入</text>
+  <rect class="badge" x="1013" y="602" width="58" height="20"/>
+  <text class="badgeText" x="1042" y="616" text-anchor="middle">未实现</text>
+
+  <rect class="card dataCard" x="1110" y="595" width="210" height="72"/>
+  <text class="hPurple" x="1215" y="619" text-anchor="middle">搜索 / 备份 / 长期素材库</text>
+  <text class="small" x="1215" y="642" text-anchor="middle">全文检索 / CDN / 归档</text>
+  <text class="small" x="1215" y="660" text-anchor="middle">当前未接入</text>
+  <rect class="badge" x="1248" y="602" width="58" height="20"/>
+  <text class="badgeText" x="1277" y="616" text-anchor="middle">未实现</text>
+
+  <!-- Infrastructure layer -->
+  <rect class="band" x="155" y="710" width="1185" height="100"/>
+  <rect class="card infraCard" x="170" y="728" width="160" height="58"/>
+  <text class="hOrange" x="250" y="752" text-anchor="middle">Vite Build</text>
+  <text class="small" x="250" y="773" text-anchor="middle">React 静态产物</text>
+
+  <rect class="card infraCard" x="350" y="728" width="160" height="58"/>
+  <text class="hOrange" x="430" y="752" text-anchor="middle">Node 20+</text>
+  <text class="small" x="430" y="773" text-anchor="middle">server/index.mjs</text>
+
+  <rect class="card infraCard" x="530" y="728" width="160" height="58"/>
+  <text class="hOrange" x="610" y="752" text-anchor="middle">PM2</text>
+  <text class="small" x="610" y="773" text-anchor="middle">ecosystem 配置</text>
+
+  <rect class="card infraCard" x="710" y="728" width="160" height="58"/>
+  <text class="hOrange" x="790" y="752" text-anchor="middle">Nginx</text>
+  <text class="small" x="790" y="773" text-anchor="middle">部署文档建议</text>
+
+  <rect class="card infraCard" x="890" y="728" width="200" height="58"/>
+  <text class="hOrange" x="990" y="752" text-anchor="middle">监控 / 告警 / 日志平台</text>
+  <text class="small" x="990" y="773" text-anchor="middle">仅依赖进程与服务器日志</text>
+  <rect class="badge" x="1016" y="735" width="58" height="20"/>
+  <text class="badgeText" x="1045" y="749" text-anchor="middle">未实现</text>
+
+  <rect class="card infraCard" x="1110" y="728" width="210" height="58"/>
+  <text class="hOrange" x="1215" y="752" text-anchor="middle">容器化 / CI/CD / WAF</text>
+  <text class="small" x="1215" y="773" text-anchor="middle">未见项目内配置</text>
+  <rect class="badge" x="1246" y="735" width="58" height="20"/>
+  <text class="badgeText" x="1275" y="749" text-anchor="middle">未实现</text>
+
+  <!-- External services -->
+  <rect class="band" x="1370" y="187" width="190" height="623"/>
+  <text class="layerLabel" x="1465" y="225" text-anchor="middle" fill="#6b33a8">外部服务</text>
+  <rect class="card externalCard" x="1390" y="252" width="150" height="82"/>
+  <text class="hPurple" x="1465" y="279" text-anchor="middle">AI 兼容接口</text>
+  <text class="small" x="1465" y="304" text-anchor="middle">api.apiyi.com / v1</text>
+  <text class="small" x="1465" y="322" text-anchor="middle">OPENAI_MODEL</text>
+
+  <rect class="card externalCard" x="1390" y="358" width="150" height="76"/>
+  <text class="hPurple" x="1465" y="385" text-anchor="middle">几何模型</text>
+  <text class="small" x="1465" y="410" text-anchor="middle">GEOMETRY_MODEL</text>
+  <text class="small" x="1465" y="428" text-anchor="middle">可选覆盖</text>
+
+  <rect class="card externalCard" x="1390" y="458" width="150" height="76"/>
+  <text class="hPurple" x="1465" y="485" text-anchor="middle">对象存储 / CDN</text>
+  <text class="small" x="1465" y="510" text-anchor="middle">当前本地/服务器文件</text>
+  <rect class="badge" x="1470" y="465" width="58" height="20"/>
+  <text class="badgeText" x="1499" y="479" text-anchor="middle">未实现</text>
+
+  <rect class="card externalCard" x="1390" y="558" width="150" height="76"/>
+  <text class="hPurple" x="1465" y="585" text-anchor="middle">消息通知</text>
+  <text class="small" x="1465" y="610" text-anchor="middle">邮件 / 短信 / Webhook</text>
+  <rect class="badge" x="1470" y="565" width="58" height="20"/>
+  <text class="badgeText" x="1499" y="579" text-anchor="middle">未实现</text>
+
+  <rect class="card externalCard" x="1390" y="658" width="150" height="76"/>
+  <text class="hPurple" x="1465" y="685" text-anchor="middle">第三方集成</text>
+  <text class="small" x="1465" y="710" text-anchor="middle">LMS / 网盘 / API</text>
+  <rect class="badge" x="1470" y="665" width="58" height="20"/>
+  <text class="badgeText" x="1499" y="679" text-anchor="middle">未实现</text>
+
+  <!-- Flow -->
+  <rect class="band" x="155" y="825" width="1185" height="105"/>
+  <rect class="card flowCard" x="175" y="850" width="142" height="52"/>
+  <text class="sectionTitle" x="246" y="873" text-anchor="middle">1. 导入素材</text>
+  <text class="small" x="246" y="893" text-anchor="middle">预置 / 上传 / 文件夹</text>
+
+  <rect class="card flowCard" x="350" y="850" width="142" height="52"/>
+  <text class="sectionTitle" x="421" y="873" text-anchor="middle">2. 白板编排</text>
+  <text class="small" x="421" y="893" text-anchor="middle">五环节 + 提示</text>
+
+  <rect class="card flowCard" x="525" y="850" width="142" height="52"/>
+  <text class="sectionTitle" x="596" y="873" text-anchor="middle">3. 识图校验</text>
+  <text class="small" x="596" y="893" text-anchor="middle">SSE / OCR / 风险</text>
+
+  <rect class="card flowCard" x="700" y="850" width="142" height="52"/>
+  <text class="sectionTitle" x="771" y="873" text-anchor="middle">4. 题目包</text>
+  <text class="small" x="771" y="893" text-anchor="middle">题解 / 修复 / 校验</text>
+
+  <rect class="card flowCard" x="875" y="850" width="142" height="52"/>
+  <text class="sectionTitle" x="946" y="873" text-anchor="middle">5. 生成逐字稿</text>
+  <text class="small" x="946" y="893" text-anchor="middle">AI / mock / 图钉</text>
+
+  <rect class="card flowCard" x="1050" y="850" width="142" height="52"/>
+  <text class="sectionTitle" x="1121" y="873" text-anchor="middle">6. 编辑导出</text>
+  <text class="small" x="1121" y="893" text-anchor="middle">Markdown / DOCX</text>
+
+  <rect class="card flowCard" x="1225" y="850" width="92" height="52"/>
+  <text class="sectionTitle" x="1271" y="873" text-anchor="middle">7. 保存</text>
+  <text class="small" x="1271" y="893" text-anchor="middle">未持久化</text>
+  <rect class="badge" x="1242" y="829" width="58" height="20"/>
+  <text class="badgeText" x="1271" y="843" text-anchor="middle">未实现</text>
+
+  <!-- Connectors -->
+  <path class="line" d="M765 154 L765 197"/>
+  <path class="line" d="M259 355 L259 400"/>
+  <path class="line" d="M452 355 L452 400"/>
+  <path class="line" d="M645 355 L645 400"/>
+  <path class="line" d="M838 355 L838 400"/>
+  <path class="line" d="M1031 355 L1031 400"/>
+  <path class="line" d="M410 476 L410 585"/>
+  <path class="line" d="M575 476 L575 585"/>
+  <path class="line" d="M740 476 L740 585"/>
+  <path class="line" d="M1070 476 L1070 585"/>
+  <path class="line" d="M740 410 C760 360 1315 260 1380 288"/>
+  <path class="line" d="M905 410 C930 350 1325 360 1380 392"/>
+  <path class="dash" d="M1245 154 L1245 196"/>
+  <path class="dash" d="M1245 355 C1300 384 1345 430 1380 494"/>
+  <path class="dash" d="M701 540 L701 588"/>
+
+  <path class="line" d="M317 876 L340 876"/>
+  <path class="line" d="M492 876 L515 876"/>
+  <path class="line" d="M667 876 L690 876"/>
+  <path class="line" d="M842 876 L865 876"/>
+  <path class="line" d="M1017 876 L1040 876"/>
+  <path class="line" d="M1192 876 L1215 876"/>
+
+  <!-- Legend -->
+  <rect class="band" x="155" y="948" width="660" height="36"/>
+  <rect class="done" x="180" y="956" width="68" height="22"/>
+  <text class="doneText" x="214" y="971" text-anchor="middle">已实现</text>
+  <text class="tiny" x="260" y="971">代码中有完整路径或可运行功能</text>
+  <rect class="partial" x="440" y="956" width="68" height="22"/>
+  <text class="partialText" x="474" y="971" text-anchor="middle">轻量/部分</text>
+  <text class="tiny" x="520" y="971">可用但不是完整产品级能力</text>
+  <rect class="badge" x="680" y="956" width="68" height="22"/>
+  <text class="badgeText" x="714" y="971" text-anchor="middle">未实现</text>
+  <text class="tiny" x="760" y="971">有需求空间或参考图中常见但当前项目未落地</text>
+
+  <rect class="band" x="1135" y="948" width="360" height="36"/>
+  <path d="M1160 966 L1202 966" class="line"/>
+  <text class="tiny" x="1220" y="970">同步调用 / 数据流</text>
+  <path d="M1330 966 L1372 966" class="dash"/>
+  <text class="tiny" x="1390" y="970">预留 / 未接入方向</text>
+</svg>

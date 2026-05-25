@@ -78,6 +78,7 @@ export interface ReviewImage {
   order: number;
   width: number;
   height: number;
+  contentType?: "problem" | "explanation";
   ocrText: string;
   riskItems: RiskItem[];
   summary: string;
@@ -113,6 +114,7 @@ export interface QueueImage {
   sectionTitle: string;
   assetName: string;
   order: number;
+  contentType?: "problem" | "explanation";
   ocrText: string;
   corrections: Array<{
     id: string;
@@ -122,15 +124,77 @@ export interface QueueImage {
   }>;
 }
 
+export interface SolutionResult {
+  problemId: string;
+  imageId?: string;
+  assetName?: string;
+  order?: number;
+  sectionId: SectionId;
+  problemText?: string;
+  hasProvidedAnswer?: boolean;
+  providedAnswer?: string;
+  providedSolutionSteps?: string[];
+  solutionSource?: "image_full_solution" | "image_answer_ai_steps" | "ai_generated" | "unclear" | string;
+  problemType: "algebra" | "geometry_calculation" | "geometry_proof" | "conic" | "function_graph" | "unknown" | string;
+  topicType?: "algebra" | "geometry" | "function" | "conic" | "statistics" | "unknown" | string;
+  geometryAnalysis?: {
+    given: string[];
+    diagramRelations: string[];
+    target: string;
+    auxiliaryLines: string[];
+    theorems: string[];
+    proofChain: Array<{
+      from: string;
+      reason: string;
+      to: string;
+    }>;
+  };
+  finalAnswer: string;
+  solutionSteps: string[];
+  keyTheorems: string[];
+  boardWriting: string[];
+  studentPitfalls: string[];
+}
+
 export interface GenerateResult {
   mode: "ai" | "mock";
   text: string;
   analysis?: string;
   warnings?: string[];
+  solutions?: SolutionResult[];
+  solutionValidation?: {
+    passed: boolean;
+    checkedCount: number;
+    repairedCount: number;
+    items?: Array<{
+      problemId: string;
+      passed: boolean;
+      missing: string[];
+      reason: string;
+    }>;
+    summary?: string;
+  };
+  solutionWarnings?: string[];
   needsReview?: boolean;
   reviewItems?: RiskItem[];
   images?: ReviewImage[];
   usedConfirmedImages?: boolean;
   usedPinnedSections?: boolean;
   skippedGeneration?: boolean;
+}
+
+export interface SolutionPackageResult {
+  mode: "ai" | "mock";
+  analysis: string;
+  warnings?: string[];
+  solutions: SolutionResult[];
+  solutionValidation?: GenerateResult["solutionValidation"];
+  solutionWarnings?: string[];
+  usedConfirmedImages?: boolean;
+}
+
+export interface SolutionRebuildResult {
+  mode: "ai" | "mock";
+  solution: SolutionResult;
+  warnings?: string[];
 }

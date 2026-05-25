@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Whiteboard } from "./components/Whiteboard";
 import { AssetPanel } from "./components/side/AssetPanel";
 import { TranscriptPanel } from "./components/side/TranscriptPanel";
-import { analyzeImages, analyzeSingleImage, exportDocx, generateTranscript, startAnalyzeStream } from "./lib/api";
+import { analyzeImages, analyzeSingleImage, exportDocx, generateProblemPackages, generateTranscript, rebuildProblemPackage, startAnalyzeStream } from "./lib/api";
 import { createImageSourceAdapter } from "./lib/imageSource";
-import type { AnalysisProgress, AnalyzeStreamEvent, Asset, AssetSource, GeneratePayload, ImageRef, PinKey, QueueImage, ReviewImage, SectionDefinition, SectionId, SectionsState } from "./lib/types";
+import type { AnalysisProgress, AnalyzeStreamEvent, Asset, AssetSource, GeneratePayload, GenerateResult, ImageRef, PinKey, QueueImage, ReviewImage, SectionDefinition, SectionId, SectionsState, SolutionResult } from "./lib/types";
 
 const SECTION_DEFINITIONS: SectionDefinition[] = [
   { id: "review", title: "一、复习检测", hint: "在此处放入复习题或检测截图" },
@@ -47,7 +47,7 @@ function sampleTranscript() {
     "",
     "接下来请大家比较一次项和常数项，判断 $m$、$n$ 以及题目真正要求的是 $n^m$ 还是 $nm$。",
     "",
-    "### 板书/展示提示",
+    "### 板书/完整题解",
     "- 展开式：$(x-5)(x+n)=x^2+(n-5)x-5n$",
     "- 常数项对应：$-5n=-10$",
     "",
@@ -73,7 +73,7 @@ export default function App() {
   const [transcript, setTranscript] = useState("");
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [transcriptStatus, setTranscriptStatus] = useState("待生成");
-  const [transcriptStatusKind, setTranscriptStatusKind] = useState<"ok" | "error" | "">("");
+  const [transcriptStatusKind, setTranscriptStatusKind] = useState<"ok" | "error" | "review" | "">("");
   const [reviewImages, setReviewImages] = useState<ReviewImage[]>([]);
   const [transcriptQueue, setTranscriptQueue] = useState<QueueImage[]>([]);
   const [riskViewActive, setRiskViewActive] = useState(false);
@@ -83,6 +83,10 @@ export default function App() {
   const [pinnedSections, setPinnedSections] = useState<Partial<Record<PinKey, boolean>>>({});
   const pinnedSectionsRef = useRef<Partial<Record<PinKey, boolean>>>({});
   const [pendingRegenerate, setPendingRegenerate] = useState(false);
+  const [problemPackages, setProblemPackages] = useState<SolutionResult[]>([]);
+  const [problemPackageAnalysis, setProblemPackageAnalysis] = useState("");
+  const [problemPackageValidation, setProblemPackageValidation] = useState<GenerateResult["solutionValidation"]>();
+  const [problemPackageWarnings, setProblemPackageWarnings] = useState<string[]>([]);
   const assets = activeAssetSource === "uploaded" ? uploadedAssets : presetAssets;
   const imageDir = activeAssetSource === "uploaded" ? uploadedImageDir : presetImageDir;
   const sourceLabel =
@@ -127,6 +131,10 @@ export default function App() {
     setPinnedSections({});
     setTranscriptGenerated(false);
     setPendingRegenerate(false);
+    setProblemPackages([]);
+    setProblemPackageAnalysis("");
+    setProblemPackageValidation(undefined);
+    setProblemPackageWarnings([]);
     setSelectedAssetName(null);
   };
 
@@ -172,12 +180,20 @@ export default function App() {
     })),
   }), [imageDir, sections, template, title]);
 
+  const clearProblemPackages = () => {
+    setProblemPackages([]);
+    setProblemPackageAnalysis("");
+    setProblemPackageValidation(undefined);
+    setProblemPackageWarnings([]);
+  };
+
   const queueFromImage = (image: ReviewImage): QueueImage => ({
     imageId: image.imageId,
     sectionId: image.sectionId,
     sectionTitle: image.sectionTitle,
     assetName: image.assetName,
     order: image.order,
+    contentType: image.contentType || "problem",
     ocrText: image.ocrText,
     corrections: [],
   });
@@ -211,6 +227,7 @@ export default function App() {
       ocrText: "",
       riskItems: [],
       summary: status === "queued" ? "等待识别校验。" : "正在识别校验。",
+      contentType: "problem",
       status,
     };
   };
@@ -232,6 +249,10 @@ export default function App() {
     setReviewImages((current) => current.map((item) => item.imageId === image.imageId ? image : item));
   };
 
+  const requireTeacherConfirmation = (image: ReviewImage): ReviewImage => (
+    image.status === "failed" ? image : { ...image, status: "needs_review" }
+  );
+
   const runAnalyzeTasks = async (payload: GeneratePayload, refs: ImageRef[], concurrency = 2) => {
     const results = new Array<ReviewImage>(refs.length);
     let cursor = 0;
@@ -247,8 +268,9 @@ export default function App() {
         setTranscriptStatus(`识别校验中 ${done}/${refs.length}：${ref.assetName}`);
         try {
           const image = await analyzeSingleImage(payload, ref);
-          results[index] = image;
-          replaceReviewImage(image);
+          const pending = requireTeacherConfirmation(image);
+          results[index] = pending;
+          replaceReviewImage(pending);
         } catch (error) {
           if (error instanceof Error && error.message.includes("后端服务版本过旧")) throw error;
           const failed = failedReviewImage(payload, ref, error instanceof Error ? error.message : "图片识别失败");
@@ -266,21 +288,13 @@ export default function App() {
   };
 
   const finalizeAnalyzedImages = async (images: ReviewImage[], total: number) => {
-    const riskyImages = images.filter((image) => image.status === "needs_review" || image.status === "failed" || image.riskItems.length);
-    const autoQueue = images.filter((image) => !riskyImages.includes(image)).map(queueFromImage);
-    setReviewImages(riskyImages);
-    setTranscriptQueue(autoQueue);
-    if (riskyImages.length) {
-      setRiskViewActive(true);
-      setTranscriptStatus(`发现 ${riskyImages.length} 张风险图片，请先校验。`);
-      setTranscriptStatusKind("error");
-      setAnalysisProgress({ phase: "done", total, done: total });
-      return;
-    }
-
-    setTranscriptStatus("识图通过，正在生成逐字稿...");
-    setTranscriptStatusKind("");
-    await generateFromQueue(autoQueue);
+    setReviewImages(images.map(requireTeacherConfirmation));
+    setTranscriptQueue([]);
+    setRiskViewActive(true);
+    const riskyCount = images.filter((image) => image.status === "needs_review" || image.status === "failed" || image.riskItems.length).length;
+    setTranscriptStatus(riskyCount ? `识别完成，${riskyCount} 张图片有风险点，请逐张校验。` : "识别完成，请逐张确认图片类型和 OCR 结果。");
+    setTranscriptStatusKind(riskyCount ? "review" : "");
+    setAnalysisProgress({ phase: "done", total, done: total });
   };
 
   const runAnalyzeStream = (payload: GeneratePayload, refs: ImageRef[]) => new Promise<ReviewImage[]>((resolve, reject) => {
@@ -305,7 +319,7 @@ export default function App() {
           setTranscriptStatus(`识别校验中 ${data.done}/${data.total}：${data.assetName}`);
         }
         if (type === "image-done" || type === "image-error") {
-          const image = data.image as ReviewImage;
+          const image = requireTeacherConfirmation(data.image as ReviewImage);
           images.push(image);
           replaceReviewImage(image);
           setAnalysisProgress({ phase: "analyzing", total: data.total, done: data.done, current: image.assetName });
@@ -313,7 +327,7 @@ export default function App() {
         }
         if (type === "job-done") {
           close();
-          resolve((data.images || images) as ReviewImage[]);
+          resolve(((data.images || images) as ReviewImage[]).map(requireTeacherConfirmation));
         }
         if (type === "job-error") {
           close();
@@ -369,19 +383,21 @@ export default function App() {
     });
   };
 
-  const removeAssetFromSection = (sectionId: SectionId, assetName: string) => {
+  const removeAssetFromSection = (sectionId: SectionId, assetName: string, clearPackages = true) => {
     setSections((current) => ({
       ...current,
       [sectionId]: { ...current[sectionId], assets: current[sectionId].assets.filter((asset) => asset.name !== assetName) },
     }));
+    if (clearPackages) clearProblemPackages();
     if (!confirmedAssetKeys.has(assetKey(sectionId, assetName))) {
       setReviewImages((current) => current.filter((image) => !(image.sectionId === sectionId && image.assetName === assetName)));
     }
   };
 
-  const purgeAssetFromQueue = (sectionId: SectionId, assetName: string) => {
+  const purgeAssetFromQueue = (sectionId: SectionId, assetName: string, clearPackages = true) => {
     setReviewImages((current) => current.filter((image) => !(image.sectionId === sectionId && image.assetName === assetName)));
     setTranscriptQueue((current) => current.filter((image) => !(image.sectionId === sectionId && image.assetName === assetName)));
+    if (clearPackages) clearProblemPackages();
   };
 
   const moveAsset = (sectionId: SectionId, fromIndex: number, toIndex: number) => {
@@ -394,10 +410,50 @@ export default function App() {
     });
   };
 
-  const generateFromQueue = async (queue: QueueImage[], regenerate = false, preservePins = false) => {
+  const generateProblemPackagesFromQueue = async (queue: QueueImage[], regenerate = false) => {
+    const problemQueue = queue.filter((image) => (image.contentType || "problem") === "problem");
+    const explanationContext = queue
+      .filter((image) => (image.contentType || "problem") === "explanation")
+      .map((image) => image.ocrText)
+      .filter(Boolean)
+      .join("\n\n");
+    if (!problemQueue.length) {
+      setProblemPackages([]);
+      setProblemPackageAnalysis(queue.map((image) => image.ocrText).join("\n\n"));
+      setProblemPackageValidation({ passed: true, checkedCount: 0, repairedCount: 0, items: [], summary: "没有题目图片，已跳过题目包生成。" });
+      setProblemPackageWarnings(["当前已确认图片均为讲解素材，已跳过题目包生成。"]);
+      await generateTranscriptFromPackages(queue, [], queue.map((image) => image.ocrText).join("\n\n"), regenerate, transcriptGenerated || pendingRegenerate);
+      return;
+    }
     setGenerating(true);
     setAnalysisProgress((current) => ({ ...current, phase: "generating" }));
-    setTranscriptStatus(regenerate ? "正在基于已确认图片队列重新生成逐字稿..." : "正在整合分析并生成逐字稿...");
+    setTranscriptStatus(regenerate ? "正在基于已确认图片队列重新生成题目包..." : "正在生成题目包...");
+    setTranscriptStatusKind("");
+    setActiveTab("transcript");
+    setRiskViewActive(true);
+    try {
+      const result = await generateProblemPackages(buildPayload(), problemQueue);
+      const mergedAnalysis = [explanationContext ? `# 已确认讲解素材\n\n${explanationContext}` : "", result.analysis || ""].filter(Boolean).join("\n\n");
+      setProblemPackages(result.solutions || []);
+      setProblemPackageAnalysis(mergedAnalysis);
+      setProblemPackageValidation(result.solutionValidation);
+      setProblemPackageWarnings(result.solutionWarnings || result.warnings || []);
+      setTranscriptStatus(result.solutionValidation?.passed ? "题目包已生成，请校验后生成逐字稿。" : "题目包已生成，请根据提示校验。");
+      setTranscriptStatusKind(result.solutionValidation?.passed ? "ok" : "review");
+      setAnalysisProgress((current) => ({ ...current, phase: "done" }));
+    } catch (error) {
+      setTranscriptStatus(error instanceof Error ? error.message : "题目包生成失败");
+      setTranscriptStatusKind("error");
+      setAnalysisProgress((current) => ({ ...current, phase: "error" }));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const generateTranscriptFromPackages = async (queue: QueueImage[], packages: SolutionResult[], analysis: string, regenerate = false, preservePins = false) => {
+    setGenerating(true);
+    setAnalysisProgress((current) => ({ ...current, phase: "generating" }));
+    setTranscriptStatus(regenerate ? "正在基于已确认题目包重新生成逐字稿..." : "正在基于已确认题目包生成逐字稿...");
     setTranscriptStatusKind("");
     setActiveTab("transcript");
     const previousTranscript = transcript;
@@ -405,14 +461,25 @@ export default function App() {
       const result = await generateTranscript(
         buildPayload(),
         queue,
-        preservePins ? { previousTranscript, pinnedSections: pinnedSectionsRef.current } : {},
+        {
+          analysis,
+          solutions: packages,
+          ...(preservePins ? { previousTranscript, pinnedSections: pinnedSectionsRef.current } : {}),
+        },
       );
       setTranscript(result.text || "");
       setViewMode("edit");
       setRiskViewActive(false);
       const baseStatus = result.mode === "mock" ? "示例稿已生成" : "AI 已生成";
       const pinWarning = (result.warnings || []).find((message) => message.includes("锁定") && message.includes("缺少"));
-      setTranscriptStatus(pinWarning ? `${baseStatus} · ${pinWarning}` : result.usedPinnedSections ? `${baseStatus} · 图钉锁定已应用` : baseStatus);
+      const solutionWarning = result.solutionWarnings?.[0] || (!result.solutionValidation?.passed && result.solutionValidation?.checkedCount ? "题解需复核" : "");
+      setTranscriptStatus(
+        pinWarning
+          ? `${baseStatus} · ${pinWarning}`
+          : solutionWarning
+            ? `${baseStatus} · ${solutionWarning}`
+            : result.usedPinnedSections ? `${baseStatus} · 图钉锁定已应用` : baseStatus,
+      );
       setTranscriptStatusKind("ok");
       setAnalysisProgress((current) => ({ ...current, phase: "done" }));
       setTranscriptGenerated(true);
@@ -444,6 +511,7 @@ export default function App() {
     setRiskViewActive(true);
     setReviewImages(refs.map((ref) => placeholderReviewImage(payload, ref, "queued")));
     setTranscriptQueue([]);
+    clearProblemPackages();
     pinnedSectionsRef.current = {};
     setPinnedSections({});
     setTranscriptGenerated(false);
@@ -462,6 +530,7 @@ export default function App() {
 
   const handleRegenerate = async () => {
     const payload = buildPayload();
+    clearProblemPackages();
     const refs = imageRefsFromPayload(payload);
     if (!refs.length) {
       setActiveTab("transcript");
@@ -497,7 +566,8 @@ export default function App() {
     if (!addedRefs.length) {
       // Fast path: no whiteboard image delta, so reuse the confirmed queue and
       // skip OCR/risk validation entirely.
-      await generateFromQueue(syncedQueue, true, transcriptGenerated);
+      clearProblemPackages();
+      await generateProblemPackagesFromQueue(syncedQueue, true);
       return;
     }
 
@@ -511,20 +581,13 @@ export default function App() {
     setReviewImages(addedRefs.map((ref) => placeholderReviewImage(payload, ref, "queued")));
     try {
       const images = await runAnalyzeTasks(payload, addedRefs, 2);
-      const riskyImages = images.filter((image) => image.status === "needs_review" || image.status === "failed" || image.riskItems.length);
-      const autoQueue = images.filter((image) => !riskyImages.includes(image)).map(queueFromImage);
-      const nextQueue = [...syncedQueue, ...autoQueue];
-      setTranscriptQueue(nextQueue);
-      setReviewImages(riskyImages);
-      if (riskyImages.length) {
-        setRiskViewActive(true);
-        setTranscriptStatus(`发现 ${riskyImages.length} 张新增风险图片，请先校验。`);
-        setTranscriptStatusKind("error");
-        setAnalysisProgress({ phase: "done", total: addedRefs.length, done: addedRefs.length });
-        return;
-      }
-      setRiskViewActive(false);
-      await generateFromQueue(nextQueue, true, transcriptGenerated);
+      setTranscriptQueue(syncedQueue);
+      setReviewImages(images.map(requireTeacherConfirmation));
+      const riskyCount = images.filter((image) => image.status === "needs_review" || image.status === "failed" || image.riskItems.length).length;
+      setRiskViewActive(true);
+      setTranscriptStatus(riskyCount ? `发现 ${riskyCount} 张新增图片有风险点，请逐张校验。` : `发现 ${images.length} 张新增图片，请逐张确认。`);
+      setTranscriptStatusKind(riskyCount ? "review" : "");
+      setAnalysisProgress({ phase: "done", total: addedRefs.length, done: addedRefs.length });
     } catch (error) {
       setTranscriptStatus(error instanceof Error ? error.message : "新增图片识别失败");
       setTranscriptStatusKind("error");
@@ -538,27 +601,57 @@ export default function App() {
     image.status !== "confirmed" &&
     !transcriptQueue.some((queued) => queued.imageId === image.imageId)
   )).length;
-  const hasReviewedRisks = reviewImages.length > 0;
+  const hasReviewedRisks = reviewImages.length > 0 || problemPackages.length > 0;
   const canGenerateQueue = pendingRiskCount === 0 && transcriptQueue.length > 0;
-  const riskButtonLabel = !hasReviewedRisks ? "风险校验 无风险" : pendingRiskCount ? `风险校验 ${pendingRiskCount}` : "风险校验 已确认";
+  const riskButtonLabel = problemPackages.length
+    ? "题目包校验"
+    : !hasReviewedRisks ? "识图校验 无待确认" : pendingRiskCount ? `识图校验 ${pendingRiskCount}` : "识图校验 已确认";
 
-  const handleConfirmImage = (image: ReviewImage, corrections: QueueImage["corrections"], correctedOcrText: string) => {
+  const handleConfirmImage = (image: ReviewImage, corrections: QueueImage["corrections"], correctedOcrText: string, contentType: QueueImage["contentType"] = "problem") => {
     const queued: QueueImage = {
       imageId: image.imageId,
       sectionId: image.sectionId,
       sectionTitle: image.sectionTitle,
       assetName: image.assetName,
       order: image.order,
+      contentType,
       ocrText: correctedOcrText,
       corrections,
     };
     setTranscriptQueue((current) => [...current.filter((item) => item.imageId !== image.imageId), queued]);
-    setReviewImages((current) => current.map((item) => item.imageId === image.imageId ? { ...item, status: "confirmed" } : item));
+    setReviewImages((current) => current.map((item) => item.imageId === image.imageId ? { ...item, contentType, ocrText: correctedOcrText, status: "confirmed" } : item));
+    clearProblemPackages();
   };
 
   const handleDeleteRiskImage = (image: ReviewImage) => {
     removeAssetFromSection(image.sectionId, image.assetName);
     purgeAssetFromQueue(image.sectionId, image.assetName);
+    clearProblemPackages();
+  };
+
+  const handleDeletePackage = (pkg: SolutionResult) => {
+    const sectionId = pkg.sectionId;
+    const assetName = pkg.assetName || transcriptQueue.find((item) => item.imageId === pkg.imageId)?.assetName || "";
+    if (!assetName) {
+      setProblemPackages((current) => current.filter((item) => item.problemId !== pkg.problemId));
+      setProblemPackageValidation((current) => current ? { ...current, items: current.items?.filter((item) => item.problemId !== pkg.problemId) } : current);
+      return;
+    }
+    removeAssetFromSection(sectionId, assetName, false);
+    purgeAssetFromQueue(sectionId, assetName, false);
+    setProblemPackages((current) => current.filter((item) => item.problemId !== pkg.problemId && item.assetName !== assetName));
+    setProblemPackageValidation((current) => current ? { ...current, items: current.items?.filter((item) => item.problemId !== pkg.problemId) } : current);
+  };
+
+  const handleRebuildPackage = async (pkg: SolutionResult, source: SolutionResult["solutionSource"], guidance: string) => {
+    const confirmedImage = transcriptQueue.find((item) => (
+      (pkg.imageId && item.imageId === pkg.imageId) ||
+      (pkg.assetName && item.assetName === pkg.assetName)
+    ));
+    if (!confirmedImage) throw new Error("未找到该题目包对应的已确认识别内容。");
+    const result = await rebuildProblemPackage(buildPayload(), confirmedImage, pkg, source, guidance);
+    if (result.warnings?.length) setProblemPackageWarnings((current) => [...current, ...result.warnings!]);
+    return result.solution;
   };
 
   const handleReanalyzeImage = async (image: ReviewImage) => {
@@ -567,14 +660,12 @@ export default function App() {
     replaceReviewImage({ ...image, status: "analyzing", summary: "正在重新识别校验..." });
     setTranscriptStatus(`重新识别中：${image.assetName}`);
     setTranscriptStatusKind("");
-    const next = await analyzeSingleImage(payload, ref);
+    const next = requireTeacherConfirmation(await analyzeSingleImage(payload, ref));
     replaceReviewImage(next);
     setTranscriptQueue((current) => current.filter((item) => item.imageId !== image.imageId));
-    if (next.status === "confirmed" && !next.riskItems.length) {
-      setTranscriptQueue((current) => [...current.filter((item) => item.imageId !== next.imageId), queueFromImage(next)]);
-    }
-    setTranscriptStatus(next.status === "needs_review" ? "已更新风险识别结果。" : "重新识别完成，该图无需风险确认。");
-    setTranscriptStatusKind(next.status === "needs_review" ? "error" : "ok");
+    clearProblemPackages();
+    setTranscriptStatus(next.status === "needs_review" || next.riskItems.length ? "已更新识别结果，请继续确认该图。" : "重新识别完成，请确认该图。");
+    setTranscriptStatusKind(next.status === "needs_review" || next.riskItems.length ? "review" : "");
     return next;
   };
 
@@ -671,6 +762,9 @@ export default function App() {
               reviewImages={reviewImages}
               assets={assets}
               queue={transcriptQueue}
+              packages={problemPackages}
+              packageValidation={problemPackageValidation}
+              packageWarnings={problemPackageWarnings}
               progress={analysisProgress}
               canGenerateQueue={canGenerateQueue}
               canRegenerate={canGenerateQueue && transcriptGenerated}
@@ -689,7 +783,12 @@ export default function App() {
               onConfirmImage={handleConfirmImage}
               onDeleteImage={handleDeleteRiskImage}
               onReanalyzeImage={handleReanalyzeImage}
-              onGenerateQueue={() => generateFromQueue(transcriptQueue, pendingRegenerate, transcriptGenerated || pendingRegenerate)}
+              onPackagesChange={setProblemPackages}
+              onDeletePackage={handleDeletePackage}
+              onRebuildPackage={handleRebuildPackage}
+              onGeneratePackages={() => generateProblemPackagesFromQueue(transcriptQueue, pendingRegenerate)}
+              onRegeneratePackages={() => generateProblemPackagesFromQueue(transcriptQueue, true)}
+              onGenerateTranscript={() => generateTranscriptFromPackages(transcriptQueue, problemPackages, problemPackageAnalysis, pendingRegenerate, transcriptGenerated || pendingRegenerate)}
               onRegenerate={handleRegenerate}
             />
           )}
